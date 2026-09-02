@@ -1,0 +1,29 @@
+# Build output (jar, compiled classes, jlink runtime, target/dist package)
+target/
+dependency-reduced-pom.xml
+
+# Configuracao real / segredos - so os .example ficam versionados
+parametros.txt
+credenciais.properties
+
+# Binario do WinSW - baixado à parte por distribuição (ver installer/winsw/README.md)
+winsw.exe
+WinSW-x64.exe
+
+# Gerado em tempo de execucao pelo robo
+logs/
+.robo_pastas_alvo.cache.json
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+bin/
+
+# Sistema operacional
+Thumbs.db
+desktop.ini
+.DS_Store
