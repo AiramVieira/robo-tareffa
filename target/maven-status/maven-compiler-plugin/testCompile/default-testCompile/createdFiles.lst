@@ -1,0 +1,7 @@
+br\com\ottimizza\robo\config\ParametrosLoaderTest.class
+br\com\ottimizza\robo\discovery\FiltroAnoTest.class
+br\com\ottimizza\robo\discovery\ArvoreScannerTest.class
+br\com\ottimizza\robo\discovery\CustomizacaoRuleTest.class
+br\com\ottimizza\robo\processamento\CicloProcessamentoTest.class
+br\com\ottimizza\robo\processamento\ExtensaoNormalizadorTest.class
+br\com\ottimizza\robo\processamento\ArquivoReservadorTest.class

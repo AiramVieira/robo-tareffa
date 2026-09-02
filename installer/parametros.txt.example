@@ -1,0 +1,17 @@
+# Configuracao do robo (recarregada a cada ciclo - nao precisa reiniciar o servico
+# para uma alteracao aqui valer, exceto para CUSTOMIZACAO/SUBNIVEL_ANO/VARIACAO_ANOS,
+# que so sao revalidadas no proximo remapeamento - ver secao 6.5 da documentacao).
+
+# Obrigatorios
+CONTABILIDADE=NomeDoEscritorio
+PASTA_INICIAL=C:/Tareffa
+NIVEIS_SUBPASTA=2
+
+# Opcionais (com os valores padrao comentados)
+# INTERVALO_VARREDURA_SEGUNDOS=30
+# INTERVALO_REMAPEAMENTO_HORAS=24
+# PASTA_ENVIAR=ENVIAR
+# ENVIADO_DATADO=SIM
+# CUSTOMIZACAO=1:>!INATIVO;1:+CONSOLIDADO
+# SUBNIVEL_ANO=2
+# VARIACAO_ANOS=-1

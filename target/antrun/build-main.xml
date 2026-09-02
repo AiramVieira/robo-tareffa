@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="maven-antrun-" default="main">
+  <target name="main">
+    <delete quiet="true" dir="C:\Users\UserOtt\pessoal\robo\target/dist" />
+    <mkdir dir="C:\Users\UserOtt\pessoal\robo\target/dist" />
+    <delete quiet="true" dir="C:\Users\UserOtt\pessoal\robo\target/dist/runtime" />
+    <exec failonerror="true" executable="C:\Program Files\Java\jdk-26.0.1/bin/jlink">
+      <arg value="--module-path" />
+      <arg value="C:\Program Files\Java\jdk-26.0.1/jmods" />
+      <arg value="--add-modules" />
+      <arg value="java.base,java.desktop,java.net.http,java.sql" />
+      <arg value="--strip-debug" />
+      <arg value="--no-header-files" />
+      <arg value="--no-man-pages" />
+      <arg value="--output" />
+      <arg value="C:\Users\UserOtt\pessoal\robo\target/dist/runtime" />
+    </exec>
+    <copy file="C:\Users\UserOtt\pessoal\robo\target/robo.jar" tofile="C:\Users\UserOtt\pessoal\robo\target/dist/robo.jar" />
+    <copy todir="C:\Users\UserOtt\pessoal\robo\target/dist">
+      <fileset dir="C:\Users\UserOtt\pessoal\robo/installer">
+        <exclude name="winsw/**" />
+      </fileset>
+    </copy>
+    <copy file="C:\Users\UserOtt\pessoal\robo/installer/winsw/README.md" todir="C:\Users\UserOtt\pessoal\robo\target/dist" />
+  </target>
+</project>

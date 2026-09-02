@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>br.com.ottimizza</groupId>
+    <artifactId>robo-guias-pagas</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>Robo Guias de Contas Pagas</name>
+    <description>Servico Windows que monitora pastas de clientes e envia guias de contas pagas para o storage do Tareffa</description>
+
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jackson.version>2.17.2</jackson.version>
+        <junit.version>5.11.0</junit.version>
+        <mockito.version>5.12.0</mockito.version>
+        <main.class>br.com.ottimizza.robo.RoboService</main.class>
+        <jlink.modules>java.base,java.desktop,java.net.http,java.sql</jlink.modules>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>robo</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.3.1</version>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${main.class}</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                Monta target/dist/: runtime Java minimo (jlink), o jar e os arquivos do
+                instalador, prontos para copiar para a maquina do cliente ou para a pasta de
+                rede compartilhada.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>montar-dist</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <delete dir="${project.build.directory}/dist" quiet="true"/>
+                                <mkdir dir="${project.build.directory}/dist"/>
+
+                                <delete dir="${project.build.directory}/dist/runtime" quiet="true"/>
+                                <exec executable="${java.home}/bin/jlink" failonerror="true">
+                                    <arg value="--module-path"/>
+                                    <arg value="${java.home}/jmods"/>
+                                    <arg value="--add-modules"/>
+                                    <arg value="${jlink.modules}"/>
+                                    <arg value="--strip-debug"/>
+                                    <arg value="--no-header-files"/>
+                                    <arg value="--no-man-pages"/>
+                                    <arg value="--output"/>
+                                    <arg value="${project.build.directory}/dist/runtime"/>
+                                </exec>
+
+                                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                                      tofile="${project.build.directory}/dist/robo.jar"/>
+                                <copy todir="${project.build.directory}/dist">
+                                    <fileset dir="${project.basedir}/installer">
+                                        <exclude name="winsw/**"/>
+                                    </fileset>
+                                </copy>
+                                <copy file="${project.basedir}/installer/winsw/README.md"
+                                      todir="${project.build.directory}/dist"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
