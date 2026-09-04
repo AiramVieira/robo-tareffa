@@ -1,9 +1,12 @@
-# Configuracao do robo (recarregada a cada ciclo - nao precisa reiniciar o servico
-# para uma alteracao aqui valer, exceto para CUSTOMIZACAO/SUBNIVEL_ANO/VARIACAO_ANOS,
-# que so sao revalidadas no proximo remapeamento - ver secao 6.5 da documentacao).
+# Configuracao do robo, recarregada a cada ciclo - nao precisa reiniciar o servico para uma
+# alteracao aqui valer. Isso inclui CUSTOMIZACAO/SUBNIVEL_ANO: qualquer mudanca
+# na configuracao de descoberta invalida o cache de pastas na hora (ver secao 6.2 da
+# documentacao). Depois de editar, rode testar.bat para conferir as pastas encontradas.
 
 # Obrigatorios
 CONTABILIDADE=NomeDoEscritorio
+# Aceita C:/Pasta, C:\Pasta e caminho UNC \\servidor\pasta.
+# Evite unidade mapeada (W:/...): um servico do Windows nao enxerga unidade mapeada.
 PASTA_INICIAL=C:/Tareffa
 NIVEIS_SUBPASTA=2
 
@@ -12,6 +15,16 @@ NIVEIS_SUBPASTA=2
 # INTERVALO_REMAPEAMENTO_HORAS=24
 # PASTA_ENVIAR=ENVIAR
 # ENVIADO_DATADO=SIM
-# CUSTOMIZACAO=1:>!INATIVO;1:+CONSOLIDADO
+# O termo das regras casa por PEDACO do nome da pasta, entao use o radical: "INATIV" alcanca
+# tanto "EMPRESA INATIVA" quanto "EMPRESA INATIVO"; "INATIVO" nao alcanca "INATIVA".
+# CUSTOMIZACAO=1:>!INATIV;1:+CONSOLIDADO
 # SUBNIVEL_ANO=2
-# VARIACAO_ANOS=-1
+#
+# A janela de anos NAO e configuravel: o robo sempre aceita o ano corrente e o anterior.
+# A chave VARIACAO_ANOS, que existia para ajustar isso, foi removida - se ela ainda estiver
+# num parametros.txt antigo, e ignorada (com um aviso no log) e pode ser apagada.
+
+# Se a estrutura de pastas do cliente for irregular demais para NIVEIS_SUBPASTA + CUSTOMIZACAO,
+# a Ottimizza envia um arquivo mapa-pastas.txt para colocar nesta mesma pasta. Quando ele existe,
+# NIVEIS_SUBPASTA, CUSTOMIZACAO e SUBNIVEL_ANO passam a ser ignorados.
+# Veja mapa-pastas.txt.example.

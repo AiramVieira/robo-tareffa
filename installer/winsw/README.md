@@ -5,16 +5,23 @@ O robô roda como um Windows Service usando o [WinSW](https://github.com/winsw/w
 distribuir o pacote (pasta `target/dist` gerada pelo build) para uma máquina de
 cliente ou para o compartilhamento de rede.
 
-## Passo único de preparação (antes de cada distribuição)
+## Preparação (uma vez por clone do repositório)
 
 1. Baixe `WinSW-x64.exe` da [página de releases do WinSW](https://github.com/winsw/winsw/releases)
    (recomendado: a versão mais recente da série 2.x, estável e amplamente usada).
 2. Renomeie o arquivo para `winsw.exe`.
-3. Coloque `winsw.exe` dentro de `target/dist/` (junto de `robo.jar`, `install.bat` etc.)
-   antes de copiar essa pasta para a máquina do cliente ou para o compartilhamento de rede.
+3. Coloque `winsw.exe` em **`installer/`** (a pasta-fonte, ao lado de `install.bat`).
 
-O `install.bat`/`install.ps1` verifica a presença de `winsw.exe` e falha com uma mensagem
-clara caso ele não esteja lá.
+O build copia esse binário para `target/dist/` a cada `mvn package`, e **falha** se ele não
+estiver em `installer/` — assim o erro aparece na sua máquina, e não na do cliente.
+`winsw.exe` é ignorado pelo git (ver `.gitignore`), então cada clone precisa baixá-lo uma vez.
+
+> Não coloque o `winsw.exe` direto em `target/dist/`: essa pasta é apagada e remontada a cada
+> build, então o arquivo se perderia na próxima execução.
+
+O `install.bat`/`install.ps1` também confere, antes de instalar qualquer coisa, se a pasta é um
+pacote completo (`winsw.exe`, `winsw.xml.template`, `robo.jar` e `runtime\bin\java.exe`) e
+aborta com a lista do que está faltando, sem registrar serviço nenhum.
 
 ## Onde instalar
 

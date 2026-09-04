@@ -1,0 +1,99 @@
+# ============================================================================================
+#  MAPA DE PASTAS - modelo
+# ============================================================================================
+#
+#  Use este arquivo quando a estrutura de pastas do cliente for irregular demais para
+#  NIVEIS_SUBPASTA + CUSTOMIZACAO: por exemplo quando departamentos diferentes tem
+#  profundidades diferentes, ou quando ha pastas de mes/ano no meio do caminho.
+#
+#  COMO USAR
+#    1. Copie este arquivo para mapa-pastas.txt (na mesma pasta do robo.jar).
+#    2. Escreva UMA LINHA POR CAMINHO, do jeito que o caminho aparece no Explorer.
+#    3. Rode testar.bat e confira a lista de pastas encontradas.
+#
+#  ATENCAO - a simples PRESENCA do arquivo mapa-pastas.txt muda o modo do robo:
+#    - NIVEIS_SUBPASTA, CUSTOMIZACAO e SUBNIVEL_ANO passam a ser IGNORADOS;
+#    - CONTABILIDADE, PASTA_INICIAL, PASTA_ENVIAR e ENVIADO_DATADO continuam valendo.
+#  Para voltar ao modo anterior, renomeie o arquivo para mapa-pastas.txt.off
+#
+#  REGRAS DE ESCRITA
+#    - Os caminhos partem da PASTA_INICIAL. Escrever o caminho absoluto tambem funciona
+#      (ele e conferido contra a PASTA_INICIAL).
+#    - Barra normal (/) ou invertida (\), como preferir.
+#    - Linha que comeca com # e comentario. Nao existe comentario no meio da linha.
+#    - O separador de opcoes de um mesmo nivel e o @ (era | em versoes anteriores). Um mapa
+#      antigo com | e recusado com mensagem explicando a troca - nao passa em silencio.
+#    - Ao contrario de / e \, o @ E permitido em nome de pasta. Se alguma pasta do cliente
+#      tiver @ no nome, confira no testar.bat se ela foi casada como voce esperava.
+#    - Um erro de digitacao NAO faz o robo varrer o lugar errado: ele para o ciclo e registra
+#      qual linha esta com problema.
+#
+#  O QUE PODE ENTRAR EM CADA NIVEL DO CAMINHO
+#
+#    Nome da pasta   casa qualquer pasta que CONTENHA esse texto. Acento, espaco, ponto e
+#                    maiuscula/minuscula nao importam ("Declaracao Estaduais" casa
+#                    "Declaração Estaduais"; "DCTFWEB - MIT" casa "DCTFWEB-MIT").
+#                    Como casa por PEDACO do nome, use o radical: "MUNICIPA" alcanca
+#                    "Municipal" e "Municipais"; "MUNICIPAL" nao alcanca "Municipais".
+#    =Nome           casa so o nome EXATO ("=ECD" nao casa "ECD ANTIGO").
+#    *               casa qualquer pasta daquele nivel.
+#    !Nome           casa todas as pastas do nivel MENOS as que contem esse texto.
+#    A@B@C           casa A ou B ou C (varias opcoes no mesmo nivel).
+#    $ANO            casa pastas de ano, e so o ano corrente e o anterior (janela fixa).
+#    $MES.ANO        casa pastas de mes.ano (01.2026, 12-2025, 012026).
+#    $ANO.MES        o inverso (2026.01).
+#
+#  ATENCAO - PARA EXCLUIR DUAS PASTAS, USE UM SO SEGMENTO
+#
+#    Este e o erro mais facil de cometer aqui, e ele AMPLIA a selecao em vez de restringir.
+#    Para excluir DMED e TESTE de um nivel, as duas negativas vao no MESMO segmento:
+#
+#      CERTO:  .../Declaracao Estaduais/!DMED@!TESTE/$ANO/$MES.ANO/*
+#
+#    Quebrar em duas linhas ANULA a exclusao inteira:
+#
+#      ERRADO: .../Declaracao Estaduais/!DMED/$ANO/$MES.ANO/*     <- esta linha aceita TESTE
+#              .../Declaracao Estaduais/!TESTE/$ANO/$MES.ANO/*    <- e esta aceita DMED
+#
+#    Motivo: LINHAS diferentes sao caminhos independentes e se somam (OU), entao o que uma
+#    linha exclui a outra deixa passar. Dentro de um segmento e o contrario: as negativas
+#    se somam (E) e basta uma casar para a pasta ser rejeitada.
+#
+#    Resumo: DENTRO DO SEGMENTO, "E". ENTRE LINHAS, "OU".
+#
+#    (Cuidado: na CUSTOMIZACAO do parametros.txt e o oposto - lá "1:>!DMED;1:>!TESTE" exclui
+#    as duas. Nao traga essa intuicao para ca.)
+#
+#  A ULTIMA pasta de cada linha e a pasta-alvo: e ali que o robo procura os arquivos
+#  (ou dentro da PASTA_ENVIAR dela, se PASTA_ENVIAR estiver configurada). Linhas diferentes
+#  podem terminar em niveis diferentes - e justamente para isso que este arquivo existe.
+#
+#  Nao e preciso mapear ENVIADOS nem ERROS: as pastas de trabalho do proprio robo nunca sao
+#  varridas por acidente.
+#
+# ============================================================================================
+#  EXEMPLO COMPLETO (todas as linhas comentadas de proposito - descomente e adapte)
+#
+#  Estrutura deste exemplo, com PASTA_INICIAL apontando para a raiz do departamento:
+#
+#    <PASTA_INICIAL>
+#    +-- Departamento Fiscal
+#    |   +-- Tributos
+#    |   |   +-- <empresa> / <filial> / <ano> / GUIAS / <mes.ano>      <-- alvo, nivel 7
+#    |   +-- Protocolos
+#    |       +-- Declaracao Estaduais
+#    |       |   +-- <tipo, menos DMED> / <ano> / <mes.ano> / <pasta>  <-- alvo, nivel 7
+#    |       |   +-- DMED / <ano>                                      <-- alvo, nivel 5
+#    |       +-- Declaracao Federais  (mesma coisa)
+#    +-- Departamento Contabil
+#        +-- Declaracoes RFB
+#            +-- DCTFWEB - MIT / <mes.ano> / <pasta>                   <-- alvo, nivel 5
+#            +-- ECD@ECF@IBGE@SIMPLES / <ano> / 1.Recibos        <-- alvo, nivel 5
+#
+# Departamento Fiscal/Tributos/*/*/$ANO/GUIAS/$MES.ANO
+# Departamento Fiscal/Protocolos/Declaracao Estaduais/!DMED/$ANO/$MES.ANO/*
+# Departamento Fiscal/Protocolos/Declaracao Estaduais/DMED/$ANO
+# Departamento Fiscal/Protocolos/Declaracao Federais/!DMED/$ANO/$MES.ANO/*
+# Departamento Fiscal/Protocolos/Declaracao Federais/DMED/$ANO
+# Departamento Contabil/Declaracoes RFB/DCTFWEB - MIT/$MES.ANO/*
+# Departamento Contabil/Declaracoes RFB/ECD@ECF@IBGE@SIMPLES/$ANO/1.Recibos

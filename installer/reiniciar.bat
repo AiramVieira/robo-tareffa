@@ -20,14 +20,14 @@ if "%PASTA_INSTALACAO:~-2%"==":\" (
     set "PASTA_INSTALACAO=%PASTA_INSTALACAO:~0,-1%"
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1" -PastaInstalacao "%PASTA_INSTALACAO%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0reiniciar.ps1" -PastaInstalacao "%PASTA_INSTALACAO%"
 if %errorlevel% neq 0 (
     echo.
-    echo Falha na instalacao - veja as mensagens acima.
+    echo Falha ao reiniciar - veja as mensagens acima.
     pause
     exit /b 1
 )
 
 echo.
-echo Robo instalado e iniciado com sucesso.
+echo Robo reiniciado com sucesso.
 pause

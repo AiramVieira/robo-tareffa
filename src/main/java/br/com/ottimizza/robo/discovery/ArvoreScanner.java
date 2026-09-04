@@ -1,14 +1,9 @@
 package br.com.ottimizza.robo.discovery;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Varredura recursiva completa da arvore de pastas a partir de {@code PASTA_INICIAL}
@@ -43,7 +38,7 @@ public final class ArvoreScanner {
             return;
         }
 
-        List<Path> subpastas = listarSubpastas(pastaAtual);
+        List<Path> subpastas = SubpastasListagem.listar(pastaAtual, avisoLog);
         int proximoNivel = nivelAtual + 1;
 
         for (Path filho : subpastas) {
@@ -84,14 +79,4 @@ public final class ArvoreScanner {
         }
     }
 
-    private List<Path> listarSubpastas(Path pasta) {
-        try (Stream<Path> stream = Files.list(pasta)) {
-            return stream.filter(Files::isDirectory)
-                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
-                    .collect(Collectors.toList());
-        } catch (IOException e) {
-            avisoLog.accept("Falha ao listar subpastas de " + pasta, e);
-            return List.of();
-        }
-    }
 }
