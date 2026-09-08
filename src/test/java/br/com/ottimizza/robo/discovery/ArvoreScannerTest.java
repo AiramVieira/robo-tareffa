@@ -27,7 +27,7 @@ class ArvoreScannerTest {
         assertTrue(regras.isPresent());
 
         ArvoreScanner scanner = new ArvoreScanner();
-        List<Path> pastasAlvo = scanner.escanear(raiz, 2, regras.get(), FiltroAno.criar("", "", 2026));
+        List<Path> pastasAlvo = scanner.escanear(raiz, 2, regras.get(), FiltroAno.criar("", 2026));
 
         assertEquals(2, pastasAlvo.size());
         assertTrue(pastasAlvo.contains(raiz.resolve("EMPRESA ATIVA LTDA").resolve("2025")));
@@ -39,7 +39,7 @@ class ArvoreScannerTest {
         criarPastas(raiz, "QUALQUER/COISA");
 
         ArvoreScanner scanner = new ArvoreScanner();
-        List<Path> pastasAlvo = scanner.escanear(raiz, 0, List.of(), FiltroAno.criar("", "", 2026));
+        List<Path> pastasAlvo = scanner.escanear(raiz, 0, List.of(), FiltroAno.criar("", 2026));
 
         assertEquals(List.of(raiz), pastasAlvo);
     }
@@ -49,7 +49,7 @@ class ArvoreScannerTest {
         criarPastas(raiz, "EMPRESA/2024", "EMPRESA/2025", "EMPRESA/2026");
 
         ArvoreScanner scanner = new ArvoreScanner();
-        FiltroAno filtroAno = FiltroAno.criar("2", "-1", 2026);
+        FiltroAno filtroAno = FiltroAno.criar("2", 2026);
         List<Path> pastasAlvo = scanner.escanear(raiz, 2, List.of(), filtroAno);
 
         assertEquals(2, pastasAlvo.size());

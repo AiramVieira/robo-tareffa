@@ -4,6 +4,7 @@ import br.com.ottimizza.robo.auth.OttimizzaAuthClient;
 import br.com.ottimizza.robo.config.CredenciaisAuth;
 import br.com.ottimizza.robo.config.Parametros;
 import br.com.ottimizza.robo.config.ParametrosLoader;
+import br.com.ottimizza.robo.diagnostico.TestarPastas;
 import br.com.ottimizza.robo.discovery.PastaAlvoResolver;
 import br.com.ottimizza.robo.logging.ErroLogger;
 import br.com.ottimizza.robo.processamento.CicloProcessamento;
@@ -25,6 +26,21 @@ public final class RoboService {
 
     public static void main(String[] args) throws URISyntaxException {
         Path pastaInstalacao = descobrirPastaInstalacao();
+
+        // O WinSW inicia o servico apenas com -jar, sem argumentos de aplicacao (install.ps1),
+        // entao nada aqui pode afetar a execucao como servico. O desvio continua vindo ANTES de
+        // CredenciaisAuth: o modo de teste e sobre pastas, e nao deve deixar de rodar por causa de
+        // um problema de credencial - ele proprio ja reporta o estado delas numa linha.
+        if (args.length > 0) {
+            if (contem(args, "--testar-pastas")) {
+                System.exit(TestarPastas.executar(pastaInstalacao, System.out, contem(args, "--verbose")));
+                return;
+            }
+            imprimirUso(System.err);
+            System.exit(64);
+            return;
+        }
+
         Path arquivoParametros = pastaInstalacao.resolve("parametros.txt");
 
         ErroLogger erroLogger = new ErroLogger(pastaInstalacao);
@@ -32,7 +48,7 @@ public final class RoboService {
 
         CredenciaisAuth credenciais;
         try {
-            credenciais = CredenciaisAuth.carregar(pastaInstalacao);
+            credenciais = CredenciaisAuth.carregar();
         } catch (IllegalStateException e) {
             erroLogger.registrar("Nao foi possivel iniciar: " + e.getMessage(), null);
             System.err.println(e.getMessage());
@@ -44,7 +60,7 @@ public final class RoboService {
         OttimizzaAuthClient authClient = new OttimizzaAuthClient(credenciais, httpClient);
         TareffaStorageClient storageClient = new TareffaStorageClient(httpClient);
         CicloProcessamento ciclo = new CicloProcessamento(authClient, storageClient, erroLogger);
-        PastaAlvoResolver resolver = new PastaAlvoResolver(erroLogger);
+        PastaAlvoResolver resolver = new PastaAlvoResolver(erroLogger, pastaInstalacao);
 
         while (true) {
             int intervaloSegundos = executarCiclo(arquivoParametros, resolver, ciclo, erroLogger);
@@ -66,7 +82,7 @@ public final class RoboService {
         }
         Parametros parametros = parametrosOpt.get();
         System.out.println("Ciclo: contabilidade=" + parametros.getContabilidade()
-                + " customizacao=" + parametros.getCustomizacao());
+                + " modo=" + resolver.descreverModo(parametros));
 
         PastaAlvoResolver.Resultado resultado = resolver.resolver(parametros);
         if (resultado instanceof PastaAlvoResolver.Resultado.ConfiguracaoInvalida invalida) {
@@ -81,6 +97,22 @@ public final class RoboService {
         }
 
         return parametros.getIntervaloVarreduraSegundos();
+    }
+
+    private static boolean contem(String[] args, String procurado) {
+        for (String arg : args) {
+            if (procurado.equalsIgnoreCase(arg)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void imprimirUso(java.io.PrintStream saida) {
+        saida.println("Uso:");
+        saida.println("  robo.jar                              inicia o robo (modo servico)");
+        saida.println("  robo.jar --testar-pastas [--verbose]  mostra as pastas que seriam monitoradas,");
+        saida.println("                                        sem mover, renomear nem enviar nada");
     }
 
     private static Path descobrirPastaInstalacao() throws URISyntaxException {

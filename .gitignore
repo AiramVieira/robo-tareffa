@@ -2,9 +2,20 @@
 target/
 dependency-reduced-pom.xml
 
-# Configuracao real / segredos - so os .example ficam versionados
+# Artefatos de build copiados a mao para a pasta-fonte: o build sempre pega o jar de
+# target/, nunca de installer/. Uma copia aqui e so peso morto (e 2 MB num commit).
+installer/robo.jar
+installer/runtime/
+
+# Configuracao real / segredos - so os .example ficam versionados.
+# mapa-pastas.txt entra aqui por dois motivos: contem a estrutura de pastas real de um cliente
+# (nomes de departamentos e de empresas), e a simples presenca do arquivo troca o modo de
+# descoberta de pastas do robo.
+# credenciais.properties nao e mais lido pelo robo (as credenciais viajam cifradas no jar), mas a
+# regra fica: um arquivo desses sobrando de uma instalacao antiga nao pode ir parar num commit.
 parametros.txt
 credenciais.properties
+mapa-pastas.txt
 
 # Binario do WinSW - baixado à parte por distribuição (ver installer/winsw/README.md)
 winsw.exe
@@ -13,6 +24,14 @@ WinSW-x64.exe
 # Gerado em tempo de execucao pelo robo
 logs/
 .robo_pastas_alvo.cache.json
+
+# Gerado pelo install.ps1 (contem caminhos absolutos da maquina e, em instalacao de rede,
+# a senha da conta de servico) - so o winsw.xml.template e versionado
+winsw.xml
+
+# Configuracao local do Claude Code: contem allowlist de permissoes com caminhos desta maquina
+# (C:\TesteRobo etc.), que nao valem em outro clone e nao entram na montagem do pacote.
+.claude/
 
 # IDEs
 .vscode/

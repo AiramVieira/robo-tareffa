@@ -10,6 +10,14 @@ import java.time.LocalDate;
  */
 public final class CaminhosPasta {
 
+    /**
+     * Nomes das pastas de trabalho do proprio robo. Expostos porque a descoberta de pastas precisa
+     * saber quais nomes nunca devem virar pasta-alvo por acidente (secao 6.6): sem isso o robo
+     * remapeia suas proprias pastas de backup e passa a criar {@code ENVIADOS/ENVIADOS/...}.
+     */
+    public static final String NOME_ENVIADOS = "ENVIADOS";
+    public static final String NOME_ERROS = "ERROS";
+
     private CaminhosPasta() {
     }
 
@@ -18,7 +26,7 @@ public final class CaminhosPasta {
     }
 
     public static Path pastaEnviados(Path pastaAlvo, boolean enviadoDatado, LocalDate dataCiclo) {
-        Path base = pastaAlvo.resolve("ENVIADOS");
+        Path base = pastaAlvo.resolve(NOME_ENVIADOS);
         if (!enviadoDatado) {
             return base;
         }
@@ -27,6 +35,6 @@ public final class CaminhosPasta {
     }
 
     public static Path pastaErros(Path pastaAlvo) {
-        return pastaAlvo.resolve("ERROS");
+        return pastaAlvo.resolve(NOME_ERROS);
     }
 }

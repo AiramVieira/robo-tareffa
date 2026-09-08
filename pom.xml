@@ -19,7 +19,14 @@
         <junit.version>5.11.0</junit.version>
         <mockito.version>5.12.0</mockito.version>
         <main.class>br.com.ottimizza.robo.RoboService</main.class>
-        <jlink.modules>java.base,java.desktop,java.net.http,java.sql</jlink.modules>
+        <!--
+            jdk.crypto.ec e OBRIGATORIO: sem ele a imagem jlink sai sem o provider SunEC e o
+            handshake TLS (ECDHE/X25519/ECDSA) contra o AUTH_SERVER_URL nao fecha - o robo
+            nunca autentica. java.desktop e java.sql nao sao usados diretamente pelo src, mas
+            o jackson-databind carrega java.beans.ConstructorProperties e serializers de
+            java.sql.Date por reflexao. Nao remova nenhum dos quatro.
+        -->
+        <jlink.modules>java.base,java.desktop,java.net.http,java.sql,jdk.crypto.ec</jlink.modules>
     </properties>
 
     <dependencies>
@@ -63,6 +70,8 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <!-- Sem isto o shade escreve dependency-reduced-pom.xml na raiz do projeto. -->
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>${main.class}</mainClass>
@@ -107,15 +116,99 @@
                                     <arg value="${project.build.directory}/dist/runtime"/>
                                 </exec>
 
+                                <!--
+                                    Falha o build se a imagem jlink sair sem o provider SunEC:
+                                    sem ECDHE/X25519/ECDSA o TLS contra o AUTH_SERVER_URL nao
+                                    fecha e o robo nunca autentica. Pergunta ao proprio runtime
+                                    montado, cujo list-modules funciona sem jdk.compiler/jshell.
+                                -->
+                                <exec executable="${project.build.directory}/dist/runtime/bin/java.exe"
+                                      failonerror="true" outputproperty="jlink.modulos.efetivos">
+                                    <arg value="--list-modules"/>
+                                </exec>
+                                <fail message="Runtime jlink montado sem jdk.crypto.ec (provider SunEC ausente) - o robo nao fecha TLS contra o AUTH_SERVER_URL. Corrija a propriedade jlink.modules.">
+                                    <condition>
+                                        <not><contains string="${jlink.modulos.efetivos}" substring="jdk.crypto.ec"/></not>
+                                    </condition>
+                                </fail>
+
                                 <copy file="${project.build.directory}/${project.build.finalName}.jar"
                                       tofile="${project.build.directory}/dist/robo.jar"/>
+
+                                <!--
+                                    Lista EXPLICITA de includes (nunca um exclude-list): a pasta
+                                    installer/ contem, em uso normal, parametros.txt preenchido,
+                                    winsw.xml gerado e logs/ - um fileset curinga assa esses
+                                    segredos no pacote do cliente.
+                                -->
                                 <copy todir="${project.build.directory}/dist">
                                     <fileset dir="${project.basedir}/installer">
-                                        <exclude name="winsw/**"/>
+                                        <include name="GUIA_INSTALACAO.md"/>
+                                        <include name="install.bat"/>
+                                        <include name="install.ps1"/>
+                                        <include name="reiniciar.bat"/>
+                                        <include name="reiniciar.ps1"/>
+                                        <include name="testar.bat"/>
+                                        <include name="testar.ps1"/>
+                                        <include name="uninstall.bat"/>
+                                        <include name="winsw.xml.template"/>
+                                        <include name="parametros.txt.example"/>
+                                        <include name="mapa-pastas.txt.example"/>
+                                        <include name="winsw.exe"/>
                                     </fileset>
                                 </copy>
                                 <copy file="${project.basedir}/installer/winsw/README.md"
                                       todir="${project.build.directory}/dist"/>
+
+                                <!--
+                                    Sem o .example o pacote nao instala: install.ps1 cria
+                                    parametros.txt a partir dele com Copy-Item sob
+                                    $ErrorActionPreference = "Stop".
+                                -->
+                                <fail message="installer/parametros.txt.example nao existe - restaure-o antes de montar o pacote (so os .example sao versionados; ver .gitignore).">
+                                    <condition>
+                                        <not><available file="${project.basedir}/installer/parametros.txt.example" type="file"/></not>
+                                    </condition>
+                                </fail>
+
+                                <!--
+                                    Guarda separada, e nao junto do bloco acima, porque a
+                                    justificativa e outra: o install.ps1 NAO deve criar
+                                    mapa-pastas.txt a partir do exemplo - a simples presenca do
+                                    arquivo troca o modo de descoberta de pastas. O exemplo existe
+                                    para o suporte ter de onde partir ao escrever o mapa.
+                                -->
+                                <fail message="installer/mapa-pastas.txt.example ausente - restaure-o antes de montar o pacote: sem ele o suporte nao tem de onde partir para escrever o mapa de pastas do cliente.">
+                                    <condition>
+                                        <not><available file="${project.basedir}/installer/mapa-pastas.txt.example" type="file"/></not>
+                                    </condition>
+                                </fail>
+
+                                <!-- winsw.exe nao e versionado: falhe no build, nao na maquina do cliente. -->
+                                <fail message="winsw.exe ausente - baixe WinSW-x64.exe, renomeie para winsw.exe e coloque em installer/ antes do build (ver installer/winsw/README.md).">
+                                    <condition>
+                                        <not><available file="${project.build.directory}/dist/winsw.exe" type="file"/></not>
+                                    </condition>
+                                </fail>
+
+                                <!--
+                                    Rede de seguranca: se algum segredo/artefato local escapar, o
+                                    build para. mapa-pastas.txt entra aqui porque contem a
+                                    estrutura de pastas real de um cliente (nomes de departamentos
+                                    e de empresas) - dado identificavel que nao pode ser assado
+                                    num pacote enviado a OUTRO cliente.
+                                -->
+                                <fail message="Segredo ou artefato local vazou para target/dist - revise o fileset da execution montar-dist.">
+                                    <condition>
+                                        <or>
+                                            <available file="${project.build.directory}/dist/credenciais.properties" type="file"/>
+                                            <available file="${project.build.directory}/dist/parametros.txt" type="file"/>
+                                            <available file="${project.build.directory}/dist/mapa-pastas.txt" type="file"/>
+                                            <available file="${project.build.directory}/dist/winsw.xml" type="file"/>
+                                            <available file="${project.build.directory}/dist/logs" type="dir"/>
+                                        </or>
+                                    </condition>
+                                </fail>
                             </target>
                         </configuration>
                     </execution>

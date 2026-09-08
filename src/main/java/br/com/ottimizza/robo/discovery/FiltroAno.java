@@ -1,29 +1,27 @@
 package br.com.ottimizza.robo.discovery;
 
 /**
- * Filtro de ano opcional (secao 6.4 do readme), controlado por {@code SUBNIVEL_ANO} e
- * {@code VARIACAO_ANOS}. Quando ativo, so permite continuar a varredura por um ramo se o ano
- * atual (dentro da tolerancia configurada) aparecer no caminho acumulado ate aquele ponto.
+ * Filtro de ano opcional (secao 6.4 do readme), controlado apenas por {@code SUBNIVEL_ANO}.
+ * Quando ativo, so permite continuar a varredura por um ramo se o ano corrente ou o anterior
+ * aparecer no caminho acumulado ate aquele ponto - a janela e fixa, ver {@link JanelaAnos}.
  */
 public final class FiltroAno {
 
-    private static final FiltroAno INATIVO = new FiltroAno(false, false, -1, 0, 0);
+    private static final FiltroAno INATIVO = new FiltroAno(false, false, -1, null);
 
     private final boolean ativo;
     private final boolean usaNivelFinal;
     private final int nivelAlvo;
-    private final int anoMinimo;
-    private final int anoMaximo;
+    private final JanelaAnos janela;
 
-    private FiltroAno(boolean ativo, boolean usaNivelFinal, int nivelAlvo, int anoMinimo, int anoMaximo) {
+    private FiltroAno(boolean ativo, boolean usaNivelFinal, int nivelAlvo, JanelaAnos janela) {
         this.ativo = ativo;
         this.usaNivelFinal = usaNivelFinal;
         this.nivelAlvo = nivelAlvo;
-        this.anoMinimo = anoMinimo;
-        this.anoMaximo = anoMaximo;
+        this.janela = janela;
     }
 
-    public static FiltroAno criar(String subnivelAnoTexto, String variacaoAnosTexto, int anoAtual) {
+    public static FiltroAno criar(String subnivelAnoTexto, int anoAtual) {
         if (subnivelAnoTexto == null || subnivelAnoTexto.isBlank()) {
             return INATIVO;
         }
@@ -40,42 +38,12 @@ public final class FiltroAno {
             }
         }
 
-        int n = extrairDigitos(variacaoAnosTexto);
-        boolean temMais = variacaoAnosTexto != null && variacaoAnosTexto.contains("+");
-        boolean temMenos = variacaoAnosTexto != null && variacaoAnosTexto.contains("-");
-
-        int anoMinimo;
-        int anoMaximo;
-        if (temMais && temMenos) {
-            anoMinimo = anoAtual - n;
-            anoMaximo = anoAtual + n;
-        } else if (temMais) {
-            anoMinimo = anoAtual;
-            anoMaximo = anoAtual + n;
-        } else if (temMenos) {
-            anoMinimo = anoAtual - n;
-            anoMaximo = anoAtual;
-        } else {
-            anoMinimo = anoAtual;
-            anoMaximo = anoAtual;
-        }
-
-        return new FiltroAno(true, usaNivelFinal, nivelAlvo, anoMinimo, anoMaximo);
+        return new FiltroAno(true, usaNivelFinal, nivelAlvo, JanelaAnos.criar(anoAtual));
     }
 
-    private static int extrairDigitos(String texto) {
-        if (texto == null) {
-            return 0;
-        }
-        String digitos = texto.replaceAll("[^0-9]", "");
-        if (digitos.isEmpty()) {
-            return 0;
-        }
-        try {
-            return Integer.parseInt(digitos);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+    /** A janela de anos aceitos; {@code null} quando o filtro esta inativo. */
+    public JanelaAnos getJanela() {
+        return janela;
     }
 
     public boolean isAtivo() {
@@ -106,11 +74,6 @@ public final class FiltroAno {
         if (!ativo) {
             return true;
         }
-        for (int ano = anoMinimo; ano <= anoMaximo; ano++) {
-            if (caminhoAcumulado.contains(String.valueOf(ano))) {
-                return true;
-            }
-        }
-        return false;
+        return janela.textoContemAnoAceito(caminhoAcumulado);
     }
 }

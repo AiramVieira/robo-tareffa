@@ -15,12 +15,17 @@ public final class Parametros {
     private final boolean enviadoDatado;
     private final String customizacao;
     private final String subnivelAno;
-    private final String variacaoAnos;
 
-    Parametros(String contabilidade, String pastaInicial, int niveisSubpasta,
+    /**
+     * Publico para que testes de descoberta de pastas montem uma configuracao direto, sem passar
+     * por {@code parametros.txt}: a validacao de {@code PASTA_INICIAL} e especifica do Windows
+     * (letra de unidade ou UNC) e amarraria esses testes ao sistema operacional do CI. Este e um
+     * value object sem invariante propria - quem valida e {@link ParametrosLoader}.
+     */
+    public Parametros(String contabilidade, String pastaInicial, int niveisSubpasta,
                int intervaloVarreduraSegundos, int intervaloRemapeamentoHoras,
                String pastaEnviar, boolean enviadoDatado, String customizacao,
-               String subnivelAno, String variacaoAnos) {
+               String subnivelAno) {
         this.contabilidade = contabilidade;
         this.pastaInicial = pastaInicial;
         this.niveisSubpasta = niveisSubpasta;
@@ -30,7 +35,6 @@ public final class Parametros {
         this.enviadoDatado = enviadoDatado;
         this.customizacao = customizacao;
         this.subnivelAno = subnivelAno;
-        this.variacaoAnos = variacaoAnos;
     }
 
     public String getContabilidade() {
@@ -67,9 +71,5 @@ public final class Parametros {
 
     public String getSubnivelAno() {
         return subnivelAno;
-    }
-
-    public String getVariacaoAnos() {
-        return variacaoAnos;
     }
 }
