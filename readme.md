@@ -39,7 +39,7 @@ Todo o estado de progresso do robô é mantido **em disco**, não em banco de da
 | `PASTA_INICIAL` | Sim | Caminho absoluto: letra de unidade com qualquer barra (`C:/Tareffa`, `C:\Tareffa`) ou caminho UNC (`\\servidor\pasta`) | Pasta raiz a partir da qual a árvore de clientes é percorrida. O ciclo é ignorado se vazio ou se não for um caminho absoluto. Prefira UNC a unidade mapeada — ver seção 9. | `C:/Tareffa` |
 | `NIVEIS_SUBPASTA` | Sim | Número inteiro | Profundidade (a partir da raiz, que conta como nível 0) em que ficam as pastas "alvo" de cada cliente. `0` = os arquivos ficam direto na raiz (modo pasta única, sem percorrer subpastas). O ciclo é ignorado se não for um inteiro válido. **Ignorado quando existe `mapa-pastas.txt`** (seção 6.6). | `2` |
 | `INTERVALO_VARREDURA_SEGUNDOS` | Não (padrão sugerido: `30`) | Número inteiro (segundos) | Tempo de espera entre o fim de um ciclo de varredura de arquivos e o início do próximo. Não afeta a velocidade de remapeamento das pastas (ver `INTERVALO_REMAPEAMENTO_HORAS`). | `30` |
-| `INTERVALO_REMAPEAMENTO_HORAS` | Não (padrão sugerido: `24`) | Número inteiro (horas) | De quanto em quanto tempo a lista de pastas-alvo é refeita do zero (varredura completa da árvore), para capturar pastas de clientes novas/removidas. Independente de `INTERVALO_VARREDURA_SEGUNDOS` — ver seção 6.2. | `24` |
+| `INTERVALO_REMAPEAMENTO_HORAS` | Não (padrão sugerido: `1`) | Número inteiro (horas) | De quanto em quanto tempo a lista de pastas-alvo é refeita do zero (varredura completa da árvore), para capturar pastas de clientes novas/removidas. Independente de `INTERVALO_VARREDURA_SEGUNDOS` — ver seção 6.2. | `1` |
 | `PASTA_ENVIAR` | Não | Texto (nome de subpasta) | Nome de uma subpasta, dentro de cada pasta-alvo, onde os arquivos a enviar realmente ficam. Se vazio, os arquivos são lidos direto da pasta-alvo. A subpasta é criada automaticamente se não existir. | `ENVIAR` |
 | `ENVIADO_DATADO` | Não | `SIM` (não sensível a maiúsculas) ou vazio/outro | Se `SIM`, a pasta de backup dos arquivos processados é organizada em `ENVIADOS/{ano}/{mês}` (data do **processamento**, não do documento). Caso contrário, usa uma única pasta `ENVIADOS/` sem subdivisão. | `SIM` |
 | `CUSTOMIZACAO` | Não | Lista de regras separadas por `;`, cada uma no formato `nivel:operadorTermo` | Regras de exceção para a varredura de pastas quando a estrutura de um cliente foge do padrão. **Ignorado quando existe `mapa-pastas.txt`** (seção 6.6). Ver seção 6.3. | `1:>!INATIV;2:+FILIAL` |
@@ -102,10 +102,14 @@ Uma marca de ordem de byte (BOM) no início do arquivo — que o Bloco de Notas 
 
 ### 6.2 Determinação das pastas-alvo (cache de estrutura)
 
+> **Resumo:** o robô **não** percorre a árvore de pastas do cliente a cada ciclo. Ele faz o mapeamento completo das pastas **uma vez por hora** (padrão de `INTERVALO_REMAPEAMENTO_HORAS`), guarda o resultado num **cache em disco** e, nesse meio-tempo, olha só as pastas já conhecidas. É isso que evita pesar no computador ou no servidor de arquivos do cliente: numa árvore de rede com dezenas de milhares de pastas, uma varredura completa leva minutos e gera muito acesso a disco; repeti-la a cada 30 segundos seria inviável.
+>
+> A consequência prática é que **uma pasta de cliente criada agora só é vista no próximo mapeamento** (em até 1 hora). Para não esperar, rode o `atualizar-pastas.bat` (seção 6.2.1).
+
 É importante separar dois conceitos que rodam em velocidades diferentes:
 
 - **Varredura de arquivos** (a cada `INTERVALO_VARREDURA_SEGUNDOS`, ex.: 30 segundos): dentro de cada pasta-alvo **já conhecida**, procura arquivos novos e os envia. Isso roda sempre no intervalo curto — é o que garante que um arquivo seja enviado poucos segundos depois de ser colocado na pasta monitorada.
-- **Remapeamento da árvore** (a cada `INTERVALO_REMAPEAMENTO_HORAS`, ex.: 24 horas): refaz a varredura completa da estrutura de pastas a partir da raiz, para descobrir **quais pastas existem** — isto é, detectar clientes novos, clientes removidos, ou mudanças que alterem quais pastas se encaixam nas regras de `CUSTOMIZACAO`/`SUBNIVEL_ANO`. Isso não precisa ser rápido: enquanto a lista de pastas-alvo não muda estruturalmente, o robô continua enviando arquivos das pastas já conhecidas normalmente, no ritmo da varredura de arquivos.
+- **Remapeamento da árvore** (a cada `INTERVALO_REMAPEAMENTO_HORAS`, ex.: 1 hora): refaz a varredura completa da estrutura de pastas a partir da raiz, para descobrir **quais pastas existem** — isto é, detectar clientes novos, clientes removidos, ou mudanças que alterem quais pastas se encaixam nas regras de `CUSTOMIZACAO`/`SUBNIVEL_ANO`. Isso não precisa ser rápido: enquanto a lista de pastas-alvo não muda estruturalmente, o robô continua enviando arquivos das pastas já conhecidas normalmente, no ritmo da varredura de arquivos.
 
 Ou seja: **o remapeamento controla apenas a integridade da lista de pastas monitoradas, nunca a velocidade de envio dos arquivos dentro delas.** Por isso o intervalo de remapeamento pode ser bem mais espaçado (ex.: uma vez por dia) sem qualquer impacto no tempo entre um arquivo ser adicionado pelo cliente e ser enviado.
 
@@ -113,11 +117,30 @@ Funcionamento:
 
 - O resultado do remapeamento é **cacheado em disco**, junto com uma *impressão digital da configuração de descoberta*. O cache só é reaproveitado quando as duas condições valem: está dentro do prazo de `INTERVALO_REMAPEAMENTO_HORAS` **e** foi gerado pela mesma configuração que está em vigor agora.
 - A impressão digital cobre exatamente o que muda a lista de pastas: `PASTA_INICIAL`, `NIVEIS_SUBPASTA`, `CUSTOMIZACAO`, `SUBNIVEL_ANO`, `PASTA_ENVIAR`, o conteúdo de `mapa-pastas.txt` e o **ano corrente**. Consequências práticas: uma regra corrigida passa a valer no próximo ciclo (segundos), sem reiniciar o serviço e sem apagar o cache à mão; e na virada de ano a lista é refeita imediatamente, em vez de ficar até `INTERVALO_REMAPEAMENTO_HORAS` usando a janela do ano anterior. Editar `ENVIADO_DATADO` ou os intervalos **não** dispara remapeamento, porque não afetam a descoberta.
-- O log diz qual gatilho disparou: `Remapeando: cache vencido (24h)` ou `Remapeando: a configuracao de descoberta de pastas mudou`.
+- O log diz qual gatilho disparou: `Remapeando: cache vencido (1h)` ou `Remapeando: a configuracao de descoberta de pastas mudou`.
 - Um cache gravado por uma versão anterior do robô não tem a impressão digital e é tratado como divergente: há **um** remapeamento extra no primeiro ciclo após a atualização, e daí em diante o regime é o normal.
 - Quando um remapeamento termina com **zero pastas-alvo**, isso é registrado como aviso em `stdout` e no log de erros. É o modo de falha mais perigoso do robô — ele roda 24 h por dia sem enviar nada — e sem esse aviso o cenário é completamente silencioso.
 - Se `NIVEIS_SUBPASTA = 0`, a lista é sempre a própria `PASTA_INICIAL` (modo pasta única, sem necessidade de cache/remapeamento).
 - Se `NIVEIS_SUBPASTA > 0` e o cache estiver ausente ou vencido (primeira vez, ou passado o `INTERVALO_REMAPEAMENTO_HORAS` desde o último remapeamento), é feita uma varredura recursiva completa (seções 6.3/6.4) e o resultado é salvo em cache novamente.
+- O cache fica em `.robo_pastas_alvo.cache.json`, na raiz da `PASTA_INICIAL`, e guarda a data em que foi gerado. O prazo de `INTERVALO_REMAPEAMENTO_HORAS` (1 hora, por padrão) conta **a partir dessa data**, ou seja, a partir do último mapeamento — não de um horário fixo do dia.
+
+#### 6.2.1 Forçar a atualização da lista de pastas (`atualizar-pastas.bat`)
+
+Para quando alguém criou uma pasta nova (cliente novo, pasta de ano novo, etc.) e quer que o robô já a monitore, sem esperar o próximo mapeamento automático. Na pasta do robô, dê duplo clique em **`atualizar-pastas.bat`**. Não pede administrador e não reinicia o serviço.
+
+O que ele faz:
+
+1. Apaga o cache de pastas (`.robo_pastas_alvo.cache.json` na `PASTA_INICIAL`).
+2. O próprio serviço percebe, no ciclo seguinte (em segundos), que o cache sumiu, refaz o mapeamento completo e grava um cache novo. O log registra `Remapeando: cache de pastas ausente`.
+3. O script espera o cache novo aparecer e mostra a data e hora do mapeamento e quantas pastas passaram a ser monitoradas.
+
+Como o cache novo nasce com a data de agora, **o contador de `INTERVALO_REMAPEAMENTO_HORAS` recomeça a partir desse momento**: com o padrão de 1 hora, o próximo mapeamento automático será 1 hora depois da execução do script.
+
+Quem gera o cache novo é sempre o serviço, nunca o script: o serviço pode rodar com outra conta do Windows e enxergar a árvore de um jeito diferente (unidade mapeada, permissões). Um cache gerado pelo usuário logado poderia listar pastas que o serviço não alcança.
+
+Não é preciso rodá-lo depois de editar `parametros.txt` ou `mapa-pastas.txt`: a mudança de configuração já dispara o remapeamento sozinha (impressão digital, acima). O `reiniciar.bat` também apaga o cache, mas reinicia o serviço junto e exige administrador; para só atualizar as pastas, prefira o `atualizar-pastas.bat`.
+
+Códigos de saída: `0` lista atualizada e confirmada; `1` erro (pasta do robô errada, `PASTA_INICIAL` inacessível, sem permissão para apagar o cache); `3` o cache foi apagado mas a lista nova ainda não foi confirmada (serviço parado, varredura ainda em andamento numa árvore grande, ou zero pastas encontradas).
 
 ### 6.3 Motor de regras de `CUSTOMIZACAO`
 
@@ -211,6 +234,7 @@ Dentro de um segmento, portanto, as alternativas **positivas** se combinam como 
 | `!Nome` (ou `*!Nome`) | todas as pastas do nível **menos** as que contêm esse texto |
 | `A@B@C` | `A` ou `B` ou `C` |
 | `$ANO` | pasta cujo nome tem exatamente um grupo de 4 dígitos, e esse ano é o corrente ou o anterior |
+| `$MES` | pasta de mês sozinho, de `1`/`01` a `12` (aceita texto ao redor, como `01 - Janeiro`); não depende da janela de anos |
 | `$MES.ANO` | pasta de mês e ano (`01.2026`, `12-2025`, `012026`, `1.2026`), com o ano na janela |
 | `$ANO.MES` | o inverso (`2026.01`) |
 
@@ -270,7 +294,7 @@ Sem essa regra, o mapa se autoenvenena: um caminho terminado em `*` faz uma past
 Qualquer problema torna a configuração inválida (seção 6.5), e a mensagem sempre diz **arquivo, número de linha, texto ofensor e o que era esperado**:
 
 ```
-mapa-pastas.txt linha 4: token desconhecido "$AN0" (esperado $ANO, $MES.ANO ou $ANO.MES)
+mapa-pastas.txt linha 4: token desconhecido "$AN0" (esperado $ANO, $MES, $MES.ANO ou $ANO.MES)
 mapa-pastas.txt linha 7: "**" nao e suportado - escreva um * por nivel
 mapa-pastas.txt linha 2: template parte de "X:/", mas PASTA_INICIAL e "W:/"
 mapa-pastas.txt: nenhum template (todas as linhas sao comentario ou vazias)
@@ -451,6 +475,7 @@ Consequência direta desse desenho: o marcador `" ARQUIVO ROBO"` existe apenas d
 - [ ] A varredura de arquivos (a cada `INTERVALO_VARREDURA_SEGUNDOS`) e o remapeamento da árvore de pastas (a cada `INTERVALO_REMAPEAMENTO_HORAS`) são independentes — o remapeamento nunca atrasa o envio de um arquivo em uma pasta já conhecida.
 - [ ] A lista de pastas-alvo é cacheada em disco entre remapeamentos e recalculada quando o cache está ausente, vencido **ou foi gerado por outra configuração de descoberta** (incluindo outro ano corrente).
 - [ ] Um cache sem impressão digital (gravado por versão anterior) provoca exatamente um remapeamento extra, e não é tratado como válido.
+- [ ] `atualizar-pastas.bat` apaga o cache, o serviço remapeia no ciclo seguinte e o prazo de `INTERVALO_REMAPEAMENTO_HORAS` recomeça a contar desse remapeamento.
 - [ ] Regras `+`/`+!`/`>`/`>!` de `CUSTOMIZACAO` funcionam conforme a tabela da seção 6.3, casando por substring normalizada do nome da pasta.
 - [ ] Filtro de ano (`SUBNIVEL_ANO`) funciona conforme a seção 6.4.
 - [ ] Configuração de regra inválida faz o remapeamento ser descartado e tentado de novo no próximo ciclo/remapeamento, sem sobrescrever o cache anterior.
@@ -459,7 +484,7 @@ Consequência direta desse desenho: o marcador `" ARQUIVO ROBO"` existe apenas d
 
 **Mapa de pastas (seção 6.6)**
 - [ ] A presença de `mapa-pastas.txt` faz `NIVEIS_SUBPASTA`, `CUSTOMIZACAO` e `SUBNIVEL_ANO` serem ignorados (com aviso por chave preenchida).
-- [ ] Segmentos casam conforme a tabela: texto por substring, `=` exato, `*`, `!termo`, `A@B@C`, `$ANO`, `$MES.ANO`, `$ANO.MES`.
+- [ ] Segmentos casam conforme a tabela: texto por substring, `=` exato, `*`, `!termo`, `A@B@C`, `$ANO`, `$MES`, `$MES.ANO`, `$ANO.MES`.
 - [ ] Uma pasta casa o segmento se casar ao menos uma alternativa positiva e nenhuma negativa; só negativas implicam um `*` positivo.
 - [ ] Caminhos com profundidades diferentes coexistem, e dois caminhos terminando em níveis diferentes no mesmo ramo produzem **duas** pastas-alvo.
 - [ ] `ENVIADOS`, `ERROS` e `PASTA_ENVIAR` nunca são alcançadas por curinga, negação ou token de ano; são alcançadas por segmento de texto explícito.

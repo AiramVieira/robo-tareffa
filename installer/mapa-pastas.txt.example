@@ -40,6 +40,7 @@
 #    !Nome           casa todas as pastas do nivel MENOS as que contem esse texto.
 #    A@B@C           casa A ou B ou C (varias opcoes no mesmo nivel).
 #    $ANO            casa pastas de ano, e so o ano corrente e o anterior (janela fixa).
+#    $MES            casa pastas de mes sozinho, de 1 ou 01 ate 12 (ex.: 2026/01).
 #    $MES.ANO        casa pastas de mes.ano (01.2026, 12-2025, 012026).
 #    $ANO.MES        o inverso (2026.01).
 #

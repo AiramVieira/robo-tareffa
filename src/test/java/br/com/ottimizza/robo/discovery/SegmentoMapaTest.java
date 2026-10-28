@@ -158,6 +158,38 @@ class SegmentoMapaTest {
     }
 
     @Test
+    void tokenMesAceitaDe1A12ComOuSemZero() {
+        SegmentoMapa segmento = seg("$MES");
+
+        assertTrue(segmento.aceita("01", null));
+        assertTrue(segmento.aceita("1", null));
+        assertTrue(segmento.aceita("09", null));
+        assertTrue(segmento.aceita("10", null));
+        assertTrue(segmento.aceita("12", null));
+        assertTrue(segmento.aceita("01 - Janeiro", null));
+    }
+
+    @Test
+    void tokenMesRejeitaForaDaFaixaEOutrosNumeros() {
+        SegmentoMapa segmento = seg("$MES");
+
+        assertFalse(segmento.aceita("0", null));
+        assertFalse(segmento.aceita("00", null));
+        assertFalse(segmento.aceita("13", null));
+        assertFalse(segmento.aceita("001", null));
+        assertFalse(segmento.aceita("2026", null));
+        assertFalse(segmento.aceita("01.2026", null));
+        assertFalse(segmento.aceita("GUIAS", null));
+    }
+
+    @Test
+    void tokenMesNaoEUmTokenDeAno() {
+        assertFalse(seg("$MES").usaTokenDeAno());
+        assertFalse(seg("$MES").permiteNomeReservado());
+        assertTrue(seg("$mes").aceita("3", null));
+    }
+
+    @Test
     void tokenAnoMesEOInversoDeMesAno() {
         SegmentoMapa segmento = seg("$ANO.MES");
 
@@ -224,6 +256,7 @@ class SegmentoMapaTest {
         assertTrue(motivo.contains("$AN0"));
         assertTrue(motivo.contains("$ANO"));
         assertTrue(motivo.contains("$MES.ANO"));
+        assertTrue(motivo.contains("$MES,"));
     }
 
     @Test

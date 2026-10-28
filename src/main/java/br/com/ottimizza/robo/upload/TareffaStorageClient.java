@@ -32,9 +32,14 @@ public final class TareffaStorageClient implements EnviadorArquivo {
         byte[] corpo = construirMultipart(boundary, nomeArquivo, conteudo);
         String url = String.format(URL_TEMPLATE, URLEncoder.encode(contabilidade, StandardCharsets.UTF_8));
 
+        // Uma conexao por envio, sem reaproveitar conexao ociosa: o storage fecha conexao parada
+        // aos ~60s, e reaproveitar uma no instante em que ele a fechava fazia o POST falhar com
+        // "HTTP/1.1 header parser received no bytes" (o JDK so repete sozinho metodo
+        // idempotente). Exige jdk.httpclient.allowRestrictedHeaders=connection (RoboService).
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Authorization", token)
+                .header("Connection", "close")
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(corpo))
                 .build();

@@ -12,7 +12,11 @@ NIVEIS_SUBPASTA=2
 
 # Opcionais (com os valores padrao comentados)
 # INTERVALO_VARREDURA_SEGUNDOS=30
-# INTERVALO_REMAPEAMENTO_HORAS=24
+# De quanto em quanto tempo o robo refaz o mapeamento completo das pastas. Entre um mapeamento
+# e outro ele usa a lista guardada em cache, para nao pesar no computador do cliente - por isso
+# uma pasta criada agora so e vista no proximo mapeamento. Para nao esperar, rode
+# atualizar-pastas.bat (atualiza a lista na hora e recomeca a contagem).
+# INTERVALO_REMAPEAMENTO_HORAS=1
 # PASTA_ENVIAR=ENVIAR
 # ENVIADO_DATADO=SIM
 # O termo das regras casa por PEDACO do nome da pasta, entao use o radical: "INATIV" alcanca
