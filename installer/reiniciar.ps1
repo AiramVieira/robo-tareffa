@@ -87,7 +87,7 @@ if (-not $servico) {
 
 # --- Cache de pastas-alvo ----------------------------------------------------------------
 # Quando NIVEIS_SUBPASTA e maior que zero (ou existe mapa-pastas.txt), a lista de pastas-alvo
-# fica em cache por INTERVALO_REMAPEAMENTO_HORAS (padrao 24h) dentro da propria PASTA_INICIAL.
+# fica em cache por INTERVALO_REMAPEAMENTO_HORAS (padrao 1h) dentro da propria PASTA_INICIAL.
 #
 # O robo ja invalida esse cache sozinho quando a CONFIGURACAO de descoberta muda (o cache
 # guarda uma impressao digital dela), entao apagar o cache a mao NAO e mais necessario depois

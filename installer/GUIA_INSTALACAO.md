@@ -182,6 +182,27 @@ que você envia à Ottimizza se algo não estiver certo.
 
 ---
 
+## Criei uma pasta nova e o robô ainda não enviou os arquivos dela
+
+Isso é esperado. Para não deixar o computador lento, o robô **não** procura pastas novas o
+tempo todo: ele faz o levantamento completo das pastas **uma vez por hora** e guarda a
+lista. Nesse intervalo, ele envia normalmente os arquivos das pastas que já conhece — só as
+pastas criadas depois do último levantamento é que ficam esperando.
+
+Para o robô enxergar a pasta nova **na hora**:
+
+1. Dentro da pasta do robô, dê duplo clique em **`atualizar-pastas.bat`** (não pede senha de
+   administrador).
+2. Aguarde a mensagem `Lista de pastas atualizada em ... - N pasta(s) monitorada(s)`. Em
+   servidores com muitas pastas isso pode levar alguns minutos.
+
+A contagem de 1 hora recomeça a partir desse momento.
+
+> Se a pasta nova continuar de fora mesmo depois disso, ela provavelmente não se encaixa na
+> configuração (`NIVEIS_SUBPASTA` ou mapa de pastas). Rode o `testar.bat` para ver o motivo.
+
+---
+
 ## Se algo der errado
 
 > **Onde está o log:** todo erro do serviço fica em `logs\winsw.wrapper.log`, dentro da pasta
@@ -198,6 +219,7 @@ que você envia à Ottimizza se algo não estiver certo.
 | O `testar.bat` mostra `nenhuma pasta encontrada` | O valor de `NIVEIS_SUBPASTA` é o erro mais comum. Se a pasta dos clientes está num servidor, confira também o aviso sobre unidade mapeada no Passo 2. |
 | `PASTA_INICIAL=... nao foi encontrada` / aviso de unidade mapeada | A pasta está numa letra de unidade que o serviço não enxerga. Troque pelo caminho `\\SERVIDOR\Pasta` que o `testar.bat` sugere (Passo 2). |
 | O `testar.bat` mostra `Credenciais: FALHA` | Não é nada que se corrija aqui: o pacote foi montado com problema. Envie essa linha à Ottimizza e peça um pacote novo. As pastas continuam sendo conferidas normalmente no mesmo relatório. |
+| Uma pasta criada agora não está sendo monitorada | Rode o `atualizar-pastas.bat` (seção "Criei uma pasta nova..."). O robô só procura pastas novas uma vez por hora. |
 | `mapa-pastas.txt linha N: ...` | Abra o `mapa-pastas.txt` no Bloco de Notas, vá até a linha **N** e compare com o que a Ottimizza enviou. Se não achar a diferença, envie o arquivo à Ottimizza. |
 | Um arquivo foi movido mas parece ter falhado | Isso é registrado automaticamente dentro de `logs\erros` (pasta do robô) — envie o
 conteúdo desse arquivo à Ottimizza para diagnóstico. |

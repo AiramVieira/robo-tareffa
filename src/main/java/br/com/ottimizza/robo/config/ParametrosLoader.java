@@ -13,7 +13,7 @@ import java.util.Optional;
 public final class ParametrosLoader {
 
     public static final int INTERVALO_VARREDURA_PADRAO_SEGUNDOS = 30;
-    public static final int INTERVALO_REMAPEAMENTO_PADRAO_HORAS = 24;
+    public static final int INTERVALO_REMAPEAMENTO_PADRAO_HORAS = 1;
 
     private ParametrosLoader() {
     }

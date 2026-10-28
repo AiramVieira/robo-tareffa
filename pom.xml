@@ -144,6 +144,8 @@
                                 <copy todir="${project.build.directory}/dist">
                                     <fileset dir="${project.basedir}/installer">
                                         <include name="GUIA_INSTALACAO.md"/>
+                                        <include name="atualizar-pastas.bat"/>
+                                        <include name="atualizar-pastas.ps1"/>
                                         <include name="install.bat"/>
                                         <include name="install.ps1"/>
                                         <include name="reiniciar.bat"/>

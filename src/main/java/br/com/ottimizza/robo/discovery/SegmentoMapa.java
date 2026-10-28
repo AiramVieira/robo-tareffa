@@ -27,19 +27,26 @@ public final class SegmentoMapa {
     /** Nome cru com exatamente um grupo de 4 digitos: {@code 2026}, {@code Ano 2026}. */
     private static final Pattern ANO = Pattern.compile("^\\D*(\\d{4})\\D*$");
 
+    /**
+     * Nome cru com exatamente um grupo de 1 ou 2 digitos, de 1 a 12: {@code 01}, {@code 1},
+     * {@code 12}, {@code 01 - Janeiro}. Mesma folga de texto ao redor que {@link #ANO}.
+     */
+    private static final Pattern MES = Pattern.compile("^\\D*(0?[1-9]|1[0-2])\\D*$");
+
     /** Forma normalizada {@code MMAAAA}: {@code 01.2026}, {@code 12-2025}, {@code 1.2026}. */
     private static final Pattern MES_ANO = Pattern.compile("^(0?[1-9]|1[0-2])(\\d{4})$");
 
     /** Forma normalizada {@code AAAAMM}: {@code 2026.01}. */
     private static final Pattern ANO_MES = Pattern.compile("^(\\d{4})(0?[1-9]|1[0-2])$");
 
-    private static final String TOKENS_CONHECIDOS = "$ANO, $MES.ANO ou $ANO.MES";
+    private static final String TOKENS_CONHECIDOS = "$ANO, $MES, $MES.ANO ou $ANO.MES";
 
     private enum Tipo {
         LITERAL,
         IGUAL,
         QUALQUER,
         TOKEN_ANO,
+        TOKEN_MES,
         TOKEN_MES_ANO,
         TOKEN_ANO_MES
     }
@@ -52,6 +59,7 @@ public final class SegmentoMapa {
                 case IGUAL -> nomeNormalizado.equals(termoNormalizado);
                 case QUALQUER -> true;
                 case TOKEN_ANO -> anoNaJanela(ANO.matcher(nomePasta), 1, anos);
+                case TOKEN_MES -> MES.matcher(nomePasta).matches();
                 case TOKEN_MES_ANO -> anoNaJanela(MES_ANO.matcher(nomeNormalizado), 2, anos);
                 case TOKEN_ANO_MES -> anoNaJanela(ANO_MES.matcher(nomeNormalizado), 1, anos);
             };
@@ -140,6 +148,7 @@ public final class SegmentoMapa {
         String token = texto.toUpperCase(Locale.ROOT);
         return switch (token) {
             case "$ANO" -> Tipo.TOKEN_ANO;
+            case "$MES" -> Tipo.TOKEN_MES;
             case "$MES.ANO" -> Tipo.TOKEN_MES_ANO;
             case "$ANO.MES" -> Tipo.TOKEN_ANO_MES;
             default -> throw new MapaInvalidoException(

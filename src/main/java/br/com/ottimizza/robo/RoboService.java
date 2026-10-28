@@ -56,6 +56,11 @@ public final class RoboService {
             return;
         }
 
+        // Libera o cabecalho "Connection" (restrito por padrao no HttpClient), usado pelo
+        // TareffaStorageClient para abrir uma conexao nova a cada envio. Tem que vir antes do
+        // primeiro HttpClient: o JDK le essa propriedade uma unica vez. Sem ela, todo envio
+        // falha com IllegalArgumentException ("restricted header name").
+        System.setProperty("jdk.httpclient.allowRestrictedHeaders", "connection");
         HttpClient httpClient = HttpClient.newHttpClient();
         OttimizzaAuthClient authClient = new OttimizzaAuthClient(credenciais, httpClient);
         TareffaStorageClient storageClient = new TareffaStorageClient(httpClient);

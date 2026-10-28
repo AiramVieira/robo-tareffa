@@ -93,6 +93,9 @@ public final class PastaAlvoResolver {
             System.out.println("Remapeando: " + (mesmaConfig
                     ? "cache vencido (" + parametros.getIntervaloRemapeamentoHoras() + "h)"
                     : "a configuracao de descoberta de pastas mudou"));
+        } else {
+            // Primeira execucao, ou o cache foi apagado a mao (atualizar-pastas.bat / reiniciar.bat).
+            System.out.println("Remapeando: cache de pastas ausente");
         }
 
         Resultado resultado = calcular(parametros, mapaOpt, ObservadorVarredura.NENHUM,
