@@ -72,7 +72,7 @@ Esta documentação não define o formato interno do log (uma linha por evento, 
 2. A cada ciclo, recarrega `parametros.txt` e valida `CONTABILIDADE`, `PASTA_INICIAL` e `NIVEIS_SUBPASTA`; se algo estiver inválido, o ciclo é ignorado (nenhum arquivo é tocado) e o robô tenta de novo no próximo ciclo — sem precisar reiniciar o serviço.
 3. Obtém a lista de pastas-alvo (via cache em disco ou varredura recursiva com as regras de `CUSTOMIZACAO`/`SUBNIVEL_ANO`).
 4. Para cada pasta-alvo, normaliza extensões e localiza arquivos com extensão aceita.
-5. Para cada arquivo encontrado: move-o para a pasta de backup ("ENVIADOS"), marcando o nome com `" ARQUIVO ROBO"`, e envia o arquivo imediatamente para o storage do Tareffa (reautenticando antes, apenas se o token atual tiver sido rejeitado com 401).
+5. Para cada arquivo encontrado: move-o para a pasta de backup ("ENVIADOS"), marcando o nome com `" ARQUIVO ROBO"`, e envia o arquivo imediatamente para o storage do Tareffa (reautenticando antes, apenas se o token atual tiver sido recusado pelo storage — seção 7.4).
 6. Após a tentativa de envio — sucesso ou falha —, remove o marcador do nome do arquivo, restaurando o nome original dentro de "ENVIADOS". Se o envio falhou, registra o erro no log (seção 7.7) antes de seguir para o próximo arquivo.
 7. Falhas ao ler/preparar um arquivo (antes da reserva) colocam-no em uma pasta "ERROS"; configuração inválida faz o ciclo inteiro ser ignorado, sem tocar em nenhum arquivo.
 8. Aguarda `INTERVALO_VARREDURA_SEGUNDOS` e recomeça do passo 2 (o remapeamento completo das pastas, seção 6.2, roda em um intervalo próprio e muito mais espaçado, sem atrasar este ciclo).
@@ -400,8 +400,12 @@ O token de acesso obtido é usado **sem prefixo** (não como `Bearer <token>`, a
 1. Monta a URL de destino: `https://s3.tareffaapp.com.br:55325/storage/tareffa-gestao-servicos/accounting/{contabilidade}/store` (um endpoint por tenant).
 2. Verifica se o arquivo ainda existe fisicamente no caminho esperado; se não existir, trata-se como falha de envio (seção 7.7).
 3. Envia o arquivo via HTTP POST `multipart/form-data`, em um único campo chamado `file`, contendo apenas os bytes do arquivo (nenhum outro metadado de negócio é enviado junto, como nome original, data, tipo de documento etc.), usando o token atual (seção 7.3) no cabeçalho `Authorization`.
-4. **Se a resposta for 401 (não autorizado)**: o robô se autentica novamente (uma única vez) e repete o envio desse mesmo arquivo com o novo token — esse novo token passa a ser o token reaproveitado dali em diante. Se essa nova tentativa falhar de novo (outro 401, ou qualquer outra falha), o envio é tratado como falha (seção 7.7) e não há mais nenhuma nova tentativa de autenticação.
+4. **Se o token for recusado** — resposta 401, **ou** resposta 200 com `"error":"invalid_token"` no corpo (ver abaixo): o robô se autentica novamente (uma única vez) e repete o envio desse mesmo arquivo com o novo token — esse novo token passa a ser o token reaproveitado dali em diante. Se essa nova tentativa falhar de novo (outra recusa de token, ou qualquer outra falha), o envio é tratado como falha (seção 7.7) e não há mais nenhuma nova tentativa de autenticação. O log de saída registra `Token recusado pelo storage - reautenticando e reenviando <arquivo>`.
 5. Qualquer outra resposta que não indique sucesso é tratada diretamente como falha de envio (seção 7.7), sem tentativa de renovação de token.
+
+**Como o robô sabe que deu certo.** O storage **não** sinaliza falha pelo status HTTP: token inválido ou vencido volta como **200**, com o erro só no corpo — `{"error":"invalid_token","message":"Token was not recognised","status":"error"}`. Por isso o status sozinho não serve: um envio só conta como sucesso quando a resposta é 2xx **e** o corpo traz o registro criado (`record`, o mesmo campo que os demais sistemas que usam o storage leem). Resposta 2xx sem `record` é falha, e o corpo dela vai para o log de erros.
+
+> Até a versão 1.1, o robô olhava só o status HTTP. Como o token vence **1 hora** depois da autenticação (validade padrão do servidor OAuth) e o robô reaproveita o mesmo token (seção 7.3), todo envio feito depois da primeira hora de serviço recebia 200 com `invalid_token`, era contado como sucesso e o arquivo ia para "ENVIADOS" **sem chegar ao Tareffa** e sem nenhum registro no log de erros — e a renovação do passo 4 nunca disparava, porque nunca chegava um 401.
 
 ### 7.5 Finalização
 
@@ -507,7 +511,8 @@ Consequência direta desse desenho: o marcador `" ARQUIVO ROBO"` existe apenas d
 - [ ] Cada arquivo aceito é movido para a pasta "ENVIADOS" (com ou sem subpasta de ano/mês conforme `ENVIADO_DATADO`) e recebe o marcador `" ARQUIVO ROBO"` no nome antes de ser enviado.
 - [ ] Cada arquivo é enviado individualmente, assim que reservado — não há acúmulo em lote nem espera por outros arquivos.
 - [ ] Autenticação contra a API da Ottimizza acontece uma única vez (não a cada arquivo); o token obtido é reaproveitado nos envios seguintes.
-- [ ] Se o envio retornar 401, o robô reautentica (uma única vez) e reenvia o mesmo arquivo com o novo token; qualquer nova falha após isso é tratada como falha de envio, sem mais tentativas de autenticação.
+- [ ] Se o storage recusar o token (401, ou 200 com `"error":"invalid_token"` no corpo), o robô reautentica (uma única vez) e reenvia o mesmo arquivo com o novo token; qualquer nova falha após isso é tratada como falha de envio, sem mais tentativas de autenticação.
+- [ ] Um envio só conta como sucesso quando a resposta é 2xx e o corpo traz `record`; resposta 2xx sem `record` é falha e o corpo vai para o log de erros.
 - [ ] O envio é feito via multipart para o endpoint de storage do tenant correspondente.
 - [ ] O marcador `" ARQUIVO ROBO"` é removido do nome do arquivo após a tentativa de envio, **tanto em sucesso quanto em falha** — o arquivo sempre termina com o nome original dentro de "ENVIADOS".
 - [ ] Em caso de falha no envio, o erro é registrado no log de erros; além da renovação de token em caso de 401, não há nova tentativa automática.

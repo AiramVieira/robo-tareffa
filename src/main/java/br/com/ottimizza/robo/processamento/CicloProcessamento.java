@@ -103,6 +103,7 @@ public final class CicloProcessamento {
             int status = enviador.enviar(contabilidade, nomeArquivo, conteudo, token);
 
             if (status == 401) {
+                System.out.println("Token recusado pelo storage - reautenticando e reenviando " + nomeArquivo);
                 String novoToken = autenticador.reautenticar(contabilidade);
                 status = enviador.enviar(contabilidade, nomeArquivo, conteudo, novoToken);
             }
