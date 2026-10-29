@@ -85,10 +85,21 @@ mesma pasta, do jeito que foi recebido.
 ## Passo 2b — Mapa de pastas (só quando a Ottimizza pedir)
 
 Em alguns escritórios a estrutura de pastas é irregular — departamentos diferentes com
-quantidades diferentes de subpastas, pastas de mês e ano no meio do caminho. Nesses casos a
-Ottimizza envia um arquivo chamado **`mapa-pastas.txt`**, que descreve os caminhos a monitorar.
+quantidades diferentes de subpastas, pastas de mês e ano no meio do caminho. Nesses casos o
+robô usa um arquivo chamado **`mapa-pastas.txt`**, que descreve os caminhos a monitorar.
 
-O que fazer:
+Quem monta esse arquivo é o analista da Ottimizza, pelo **`mapear.bat`** — normalmente por
+acesso remoto a este computador. Se a Ottimizza pedir que você abra o mapeador:
+
+1. Dê duplo clique em **`mapear.bat`** (não pede senha de administrador). Abre uma janela preta
+   e, logo depois, a tela do mapeador no navegador.
+2. **Não feche a janela preta** enquanto o mapeador estiver em uso — fechá-la encerra o
+   mapeador.
+3. Se o navegador não abrir sozinho, ou abrir uma tela dizendo que este navegador não consegue
+   abrir o mapeador, copie o endereço que aparece na janela preta e cole no **Microsoft Edge**
+   ou no **Google Chrome**.
+
+Se, em vez disso, a Ottimizza **enviou** um `mapa-pastas.txt` pronto:
 
 1. Coloque o `mapa-pastas.txt` **na mesma pasta do `robo.jar`**, junto com o `parametros.txt`.
 2. Se a Ottimizza pedir para colar linhas novas nele, cole **exatamente** como foram enviadas,
@@ -221,6 +232,8 @@ A contagem de 1 hora recomeça a partir desse momento.
 | O `testar.bat` mostra `Credenciais: FALHA` | Não é nada que se corrija aqui: o pacote foi montado com problema. Envie essa linha à Ottimizza e peça um pacote novo. As pastas continuam sendo conferidas normalmente no mesmo relatório. |
 | Uma pasta criada agora não está sendo monitorada | Rode o `atualizar-pastas.bat` (seção "Criei uma pasta nova..."). O robô só procura pastas novas uma vez por hora. |
 | `mapa-pastas.txt linha N: ...` | Abra o `mapa-pastas.txt` no Bloco de Notas, vá até a linha **N** e compare com o que a Ottimizza enviou. Se não achar a diferença, envie o arquivo à Ottimizza. |
+| O `mapear.bat` mostra `CONFIGURACAO INVALIDA` ou `PASTA_INICIAL NAO ENCONTRADA` | O mapeador precisa do `parametros.txt` preenchido. Faça o Passo 2 e rode o `mapear.bat` de novo. |
+| A tela do mapeador diz que o mapeador não está mais respondendo | A janela preta do `mapear.bat` foi fechada. Rode o `mapear.bat` de novo. |
 | Um arquivo foi movido mas parece ter falhado | Isso é registrado automaticamente dentro de `logs\erros` (pasta do robô) — envie o
 conteúdo desse arquivo à Ottimizza para diagnóstico. |
 

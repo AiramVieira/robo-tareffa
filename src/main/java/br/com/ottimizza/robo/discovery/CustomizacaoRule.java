@@ -110,7 +110,7 @@ public final class CustomizacaoRule {
         return negado != contem;
     }
 
-    static String normalizar(String texto) {
+    public static String normalizar(String texto) {
         String semAcentos = Normalizer.normalize(texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
         return semAcentos.replaceAll("[^a-zA-Z0-9]", "").toLowerCase(Locale.ROOT);
     }

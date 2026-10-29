@@ -24,9 +24,11 @@
             handshake TLS (ECDHE/X25519/ECDSA) contra o AUTH_SERVER_URL nao fecha - o robo
             nunca autentica. java.desktop e java.sql nao sao usados diretamente pelo src, mas
             o jackson-databind carrega java.beans.ConstructorProperties e serializers de
-            java.sql.Date por reflexao. Nao remova nenhum dos quatro.
+            java.sql.Date por reflexao. jdk.httpserver e o servidor local da tela do mapeador de
+            pastas (mapear.bat); sem ele o modo mapeador do robo.jar falha com NoClassDefFoundError
+            so na maquina do cliente, porque o JDK de build tem o modulo. Nao remova nenhum dos cinco.
         -->
-        <jlink.modules>java.base,java.desktop,java.net.http,java.sql,jdk.crypto.ec</jlink.modules>
+        <jlink.modules>java.base,java.desktop,java.net.http,java.sql,jdk.crypto.ec,jdk.httpserver</jlink.modules>
     </properties>
 
     <dependencies>
@@ -148,6 +150,7 @@
                                         <include name="atualizar-pastas.ps1"/>
                                         <include name="install.bat"/>
                                         <include name="install.ps1"/>
+                                        <include name="mapear.bat"/>
                                         <include name="reiniciar.bat"/>
                                         <include name="reiniciar.ps1"/>
                                         <include name="testar.bat"/>
@@ -206,6 +209,7 @@
                                             <available file="${project.build.directory}/dist/credenciais.properties" type="file"/>
                                             <available file="${project.build.directory}/dist/parametros.txt" type="file"/>
                                             <available file="${project.build.directory}/dist/mapa-pastas.txt" type="file"/>
+                                            <available file="${project.build.directory}/dist/mapa-pastas-anteriores" type="dir"/>
                                             <available file="${project.build.directory}/dist/winsw.xml" type="file"/>
                                             <available file="${project.build.directory}/dist/logs" type="dir"/>
                                         </or>

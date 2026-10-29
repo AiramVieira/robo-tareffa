@@ -1,0 +1,2219 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapeador de pastas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f62d6'/%3E%3Cpath d='M7 11a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z' fill='white'/%3E%3C/svg%3E">
+<!--
+  Tela do mapeador de pastas (robo.jar --mapear / mapear.bat - secao 6.8 do readme).
+
+  Esta pagina so MONTA o texto do mapa-pastas.txt. Quem interpreta e casa as pastas e sempre o
+  motor do robo, no servidor: a previa, a lista de nomes de cada nivel e a validacao do salvamento
+  vem de /api. Nenhuma regra de casamento e reimplementada aqui - se a tela e o robo discordassem,
+  o analista conferiria uma coisa e o robo faria outra.
+
+  Sem nenhum recurso externo (CDN, fonte, imagem): roda no computador do cliente, que pode nao ter
+  internet. Nomes de pasta sao sempre inseridos como texto (textContent), nunca como HTML.
+-->
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #f0f2f6;
+    --surface-3: #e7ebf1;
+    --border: #e1e5ec;
+    --border-strong: #c9d0db;
+    --text: #18202e;
+    --text-2: #4a5568;
+    --text-3: #7a8496;
+    --primary: #2f62d6;
+    --primary-hover: #2552b8;
+    --primary-soft: #eaf0fe;
+    --primary-line: #c4d4fb;
+    --on-primary: #ffffff;
+    --ok: #157a3c;
+    --ok-soft: #e5f4ea;
+    --ok-line: #a6d7b8;
+    --warn: #9a5b00;
+    --warn-soft: #fff3dc;
+    --warn-line: #f2d39b;
+    --danger: #c0352b;
+    --danger-soft: #fdebea;
+    --danger-line: #f3c2bd;
+    --folder: #d6a21e;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .07);
+    --shadow-lg: 0 12px 32px rgba(16, 24, 40, .18);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161d;
+      --surface: #1a1f28;
+      --surface-2: #222833;
+      --surface-3: #2b3240;
+      --border: #2c3341;
+      --border-strong: #3c4555;
+      --text: #e7ebf2;
+      --text-2: #b4bccb;
+      --text-3: #8690a2;
+      --primary: #6d95f2;
+      --primary-hover: #86a8f5;
+      --primary-soft: #1f2b47;
+      --primary-line: #34497a;
+      --on-primary: #0d1220;
+      --ok: #5cc483;
+      --ok-soft: #173325;
+      --ok-line: #2d5c40;
+      --warn: #f0b552;
+      --warn-soft: #3a2c12;
+      --warn-line: #6b5121;
+      --danger: #f07c72;
+      --danger-soft: #3d1c1a;
+      --danger-line: #6e2f2a;
+      --folder: #e0b343;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+      --shadow-lg: 0 12px 32px rgba(0, 0, 0, .5);
+      color-scheme: dark;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  [hidden] { display: none !important; }
+
+  /* ---------------------------------------------------------------- icones */
+  .ic { display: inline-grid; place-items: center; flex: none; }
+  .ic svg { width: 16px; height: 16px; display: block; }
+
+  /* ---------------------------------------------------------------- botoes */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong); background: var(--surface);
+    cursor: pointer; font-weight: 500; white-space: nowrap;
+    transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn:focus-visible, .seta:focus-visible, .nivel-cab:focus-visible, .nome:focus-visible,
+  .chip button:focus-visible, .arvore-linha:focus-visible, .link:focus-visible, .resumo:focus-visible {
+    outline: 2px solid var(--primary); outline-offset: 2px;
+  }
+  .btn.primario { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+  .btn.primario:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+  .btn.perigo { color: var(--danger); }
+  .btn.perigo:hover { background: var(--danger-soft); border-color: var(--danger-line); }
+  .btn.discreto { border-color: transparent; background: transparent; color: var(--text-2); }
+  .btn.discreto:hover { background: var(--surface-2); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.grande { padding: 9px 18px; }
+  .link {
+    border: 0; background: none; padding: 0; color: var(--primary); cursor: pointer;
+    text-decoration: underline; text-underline-offset: 2px;
+  }
+
+  /* ---------------------------------------------------------------- topo */
+  .topo {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .marca { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .marca-icone {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--primary); color: var(--on-primary);
+    display: grid; place-items: center; flex: none;
+  }
+  .marca-icone svg { width: 19px; height: 19px; }
+  .marca h1 { font-size: 16px; line-height: 1.2; margin: 0; font-weight: 650; }
+  .marca .sub { color: var(--text-3); font-size: 12.5px; }
+  .topo-dir { margin-left: auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .raiz {
+    display: inline-flex; align-items: center; gap: 6px; min-width: 0;
+    font-family: var(--mono); font-size: 12px; color: var(--text-2);
+    background: var(--surface-2); padding: 5px 9px; border-radius: var(--radius-sm);
+  }
+  .raiz span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+
+  /* ---------------------------------------------------------------- faixas de aviso */
+  .faixa {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 20px; border-bottom: 1px solid var(--border); font-size: 13.5px;
+  }
+  .faixa .ic svg { width: 18px; height: 18px; margin-top: 1px; }
+  .faixa.info { background: var(--primary-soft); border-color: var(--primary-line); }
+  .faixa.info .ic { color: var(--primary); }
+  .faixa.aviso { background: var(--warn-soft); border-color: var(--warn-line); }
+  .faixa.aviso .ic { color: var(--warn); }
+  .faixa.erro { background: var(--danger-soft); border-color: var(--danger-line); }
+  .faixa.erro .ic { color: var(--danger); }
+  .faixa b { font-weight: 650; }
+
+  /* ---------------------------------------------------------------- colunas */
+  main { flex: 1; display: grid; grid-template-columns: minmax(320px, 36%) 1fr; min-height: 0; }
+  .col-arvore {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--surface); border-right: 1px solid var(--border);
+  }
+  .col-cab { padding: 14px 16px 6px; }
+  .col-cab h2, .secao-cab h2 {
+    font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2);
+    margin: 0; font-weight: 650;
+  }
+  .legenda { margin: 4px 0 0; color: var(--text-3); font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .legenda span { display: inline-flex; align-items: center; gap: 4px; }
+  .col-direita { overflow: auto; padding: 16px 22px 28px; min-height: 0; }
+  .secao-cab { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 10px; }
+  .secao-cab .conta { color: var(--text-3); font-size: 12.5px; }
+
+  /* ---------------------------------------------------------------- arvore */
+  #arvore { flex: 1; overflow: auto; padding: 2px 8px 12px; }
+  .arvore-linha {
+    display: flex; align-items: center; gap: 6px;
+    min-height: 29px; padding: 2px 8px 2px calc(4px + var(--nivel, 0) * 18px);
+    border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; user-select: none;
+  }
+  .arvore-linha:hover { background: var(--surface-2); }
+  .arvore-linha.selecionada { background: var(--primary-soft); box-shadow: inset 0 0 0 1px var(--primary-line); }
+  .arvore-linha.no-exemplo .arvore-nome { font-weight: 650; }
+  .arvore-linha.do-robo { color: var(--text-3); }
+  .arvore-linha.do-robo .ic-pasta { color: var(--text-3); }
+  .arvore-nome { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .arvore-info {
+    display: flex; align-items: center; gap: 6px; color: var(--text-3); font-size: 12.5px;
+    padding: 3px 8px 3px calc(30px + var(--nivel, 0) * 18px);
+  }
+  .seta {
+    width: 22px; height: 22px; border: 0; background: none; padding: 0; color: var(--text-3);
+    display: grid; place-items: center; cursor: pointer; border-radius: 4px; flex: none;
+  }
+  .seta:hover { background: var(--surface-3); color: var(--text); }
+  .seta svg { transition: transform .12s; }
+  .seta.aberta svg { transform: rotate(90deg); }
+  .ic-pasta { color: var(--folder); }
+  .marca-alvo, .marca-dentro, .etiqueta {
+    display: inline-flex; align-items: center; gap: 3px; flex: none;
+    font-size: 11px; font-weight: 600; line-height: 18px; padding: 0 7px; border-radius: 999px;
+  }
+  .marca-alvo { margin-left: auto; position: relative; color: var(--cor); }
+  .marca-alvo::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--cor); opacity: .14;
+  }
+  .marca-alvo .ic svg { width: 13px; height: 13px; stroke-width: 3; }
+  .marca-dentro { margin-left: auto; color: var(--ok); background: var(--ok-soft); }
+  .etiqueta.neutra { background: var(--surface-3); color: var(--text-2); }
+  .etiqueta.alvo { background: var(--primary-soft); color: var(--primary); }
+  .etiqueta.erro { background: var(--danger-soft); color: var(--danger); }
+  .etiqueta.aviso { background: var(--warn-soft); color: var(--warn); }
+
+  #acao-pasta { border-top: 1px solid var(--border); padding: 12px 16px 14px; background: var(--surface); }
+  .acao-rotulo { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); font-weight: 600; }
+  .acao-caminho {
+    font-family: var(--mono); font-size: 12px; color: var(--text); margin: 3px 0 10px;
+    overflow-wrap: anywhere; max-height: 4.5em; overflow: auto;
+  }
+  .acao-botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .nota { display: flex; gap: 7px; align-items: flex-start; font-size: 13px; margin: 0 0 10px; }
+  .nota .ic svg { width: 15px; height: 15px; margin-top: 2px; }
+  .nota.ok { color: var(--ok); }
+  .nota.aviso { color: var(--warn); }
+  .nota.erro { color: var(--danger); }
+  .dica { color: var(--text-3); font-size: 13px; margin: 0; }
+
+  /* ---------------------------------------------------------------- estado vazio */
+  .vazio {
+    background: var(--surface); border: 1px dashed var(--border-strong); border-radius: var(--radius);
+    padding: 22px 24px;
+  }
+  .vazio h3 { margin: 0 0 4px; font-size: 16px; }
+  .vazio > p { margin: 0 0 14px; color: var(--text-2); }
+  .passos { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: passo; }
+  .passos li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; counter-increment: passo; }
+  .passos li::before {
+    content: counter(passo); width: 26px; height: 26px; border-radius: 50%;
+    background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 13px;
+    display: grid; place-items: center;
+  }
+  .passos b { font-weight: 650; }
+  .passos span { color: var(--text-2); }
+
+  /* ---------------------------------------------------------------- caminhos */
+  #caminhos { display: grid; gap: 10px; }
+  .caminho {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .caminho.aberto { border-color: var(--border-strong); }
+  .caminho-cab {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer;
+    border: 0; background: none; width: 100%; text-align: left;
+  }
+  .caminho-cab:hover { background: var(--surface-2); }
+  .caminho-cor { width: 10px; height: 10px; border-radius: 50%; background: var(--cor); flex: none; }
+  .caminho-titulo { min-width: 0; flex: 1; }
+  .caminho-nome { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .trilha { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; margin-top: 3px; font-size: 12.5px; color: var(--text-2); }
+  .trilha .sep { color: var(--text-3); }
+  .trilha .esp {
+    background: var(--surface-3); color: var(--text); border-radius: 4px; padding: 0 5px; font-size: 12px;
+  }
+  .trilha .esp.mono { font-family: var(--mono); font-size: 11.5px; }
+  .selo {
+    flex: none; font-size: 12px; font-weight: 650; padding: 2px 9px; border-radius: 999px;
+    background: var(--surface-3); color: var(--text-2); display: inline-flex; align-items: center; gap: 4px;
+  }
+  .selo.ok { background: var(--ok-soft); color: var(--ok); }
+  .selo.zero { background: var(--warn-soft); color: var(--warn); }
+  .selo.erro { background: var(--danger-soft); color: var(--danger); }
+  .selo .ic svg { width: 13px; height: 13px; }
+  .caminho-cab > .ic { color: var(--text-3); }
+  .caminho-cab > .ic svg { transition: transform .12s; }
+  .caminho.aberto .caminho-cab > .ic svg { transform: rotate(90deg); }
+
+  .caminho-corpo { border-top: 1px solid var(--border); padding: 14px 16px 16px; display: grid; gap: 12px; }
+  .campo { display: grid; gap: 4px; }
+  .campo > span { font-size: 12.5px; color: var(--text-2); font-weight: 500; }
+  input[type="text"], input[type="search"], select {
+    width: 100%; padding: 7px 10px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong); background: var(--surface); outline: none;
+  }
+  input[type="text"]:focus, input[type="search"]:focus, select:focus {
+    border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft);
+  }
+  .exemplo {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+    font-size: 13px; color: var(--text-2);
+  }
+  .exemplo code { overflow-wrap: anywhere; color: var(--text); }
+  .exemplo .ic { color: var(--primary); }
+  .caixa-erro, .caixa-aviso {
+    display: flex; gap: 8px; align-items: flex-start; padding: 9px 12px;
+    border-radius: var(--radius-sm); font-size: 13px;
+  }
+  .caixa-erro { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger-line); }
+  .caixa-aviso { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-line); }
+  .caixa-erro .ic svg, .caixa-aviso .ic svg { width: 16px; height: 16px; margin-top: 1px; }
+  .caminho-acoes { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+  /* ---------------------------------------------------------------- niveis */
+  .niveis { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .nivel + .nivel { border-top: 1px solid var(--border); }
+  .nivel-cab {
+    display: grid; grid-template-columns: 24px minmax(0, 1fr) 16px minmax(0, 1.6fr) 16px;
+    align-items: center; gap: 10px; width: 100%; padding: 9px 12px;
+    border: 0; background: var(--surface); text-align: left; cursor: pointer;
+  }
+  .nivel-cab:hover { background: var(--surface-2); }
+  .nivel.aberto > .nivel-cab { background: var(--surface-2); }
+  .nivel-num {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--surface-3); color: var(--text-2);
+    font-size: 11.5px; font-weight: 700; display: grid; place-items: center;
+  }
+  .nivel.com-problema .nivel-num { background: var(--danger-soft); color: var(--danger); }
+  .nivel-exemplo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+  .nivel-exemplo.sem { color: var(--text-3); font-style: italic; }
+  .nivel-seta { color: var(--text-3); }
+  .nivel-regra { display: grid; gap: 1px; min-width: 0; }
+  .nivel-regra-linha { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .nivel-regra-texto { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nivel-fora { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nivel-chev { color: var(--text-3); }
+  .nivel-chev svg { transition: transform .12s; }
+  .nivel.aberto .nivel-chev svg { transform: rotate(90deg); }
+
+  .nivel-painel { padding: 12px 14px 14px 46px; background: var(--surface-2); display: grid; gap: 12px; border-top: 1px solid var(--border); }
+  .pergunta { font-weight: 600; }
+  .opcoes { display: grid; gap: 2px; }
+  .opcao {
+    display: grid; grid-template-columns: 20px 1fr; column-gap: 8px;
+    padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid transparent;
+  }
+  .opcao.marcada { background: var(--surface); border-color: var(--border); }
+  .opcao input[type="radio"] { margin: 3px 0 0; accent-color: var(--primary); width: 15px; height: 15px; }
+  .opcao label { cursor: pointer; display: grid; }
+  .opcao-titulo { font-weight: 500; }
+  .opcao-desc { color: var(--text-3); font-size: 12.5px; }
+  .opcao-extra { grid-column: 2; margin-top: 8px; }
+  .opcao-extra select { max-width: 420px; }
+  .nota-data { color: var(--text-3); font-size: 12.5px; margin: 6px 0 0; }
+
+  .termos { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip {
+    display: inline-flex; align-items: stretch; border-radius: 999px;
+    background: var(--primary-soft); border: 1px solid var(--primary-line); color: var(--text);
+    overflow: hidden; max-width: 100%;
+  }
+  .chip button { border: 0; background: none; cursor: pointer; padding: 2px 4px 2px 10px; }
+  .chip .chip-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .chip-texto b { color: var(--primary); }
+  .chip .chip-x { padding: 2px 8px 2px 4px; color: var(--text-3); }
+  .chip .chip-x:hover { color: var(--danger); }
+  .chip .chip-x svg { width: 13px; height: 13px; }
+  .chip.excluir { background: var(--danger-soft); border-color: var(--danger-line); }
+  .chip.excluir .chip-texto b { color: var(--danger); }
+  .chip-entrada { width: 180px !important; padding: 4px 10px !important; border-radius: 999px !important; }
+  .termos-ajuda { flex-basis: 100%; color: var(--text-3); font-size: 12px; margin-top: 2px; }
+
+  .nomes { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px 12px; display: grid; gap: 8px; }
+  .nomes-cab { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .nomes-titulo { font-weight: 600; font-size: 13px; }
+  .nomes-conta { color: var(--text-3); font-size: 12.5px; }
+  .nomes-cab input { margin-left: auto; max-width: 220px; padding: 4px 9px; }
+  .nomes-lista { display: flex; flex-wrap: wrap; gap: 5px; max-height: 220px; overflow: auto; padding: 1px; }
+  .nome {
+    display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+    padding: 2px 9px 2px 6px; border-radius: 6px; font-size: 12.5px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface);
+  }
+  .nome span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nome .ic svg { width: 13px; height: 13px; stroke-width: 2.6; }
+  .nome.entra { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok); }
+  .nome.fora { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--border-strong); }
+  .nome.do-robo { color: var(--text-3); border-style: dashed; cursor: default; }
+  .nome-qtd { color: var(--text-3); font-size: 11px; text-decoration: none; }
+  .nomes-rodape { color: var(--text-3); font-size: 12px; }
+
+  /* ---------------------------------------------------------------- resultado */
+  #resultado { margin-top: 22px; }
+  .cartao { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .resultado-topo { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+  .resultado-icone {
+    width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none;
+    background: var(--surface-3); color: var(--text-2);
+  }
+  .resultado-icone svg { width: 21px; height: 21px; }
+  .resultado-icone.ok { background: var(--ok-soft); color: var(--ok); }
+  .resultado-icone.aviso { background: var(--warn-soft); color: var(--warn); }
+  .resultado-icone.erro { background: var(--danger-soft); color: var(--danger); }
+  .resultado-titulo { font-size: 17px; font-weight: 650; margin: 0; }
+  .resultado-sub { color: var(--text-3); font-size: 13px; margin: 1px 0 0; }
+  .resultado-corpo { border-top: 1px solid var(--border); padding: 6px 18px 14px; }
+  .avisos { list-style: none; margin: 0; padding: 0; }
+  .avisos > li { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .avisos > li:last-child { border-bottom: 0; }
+  .aviso-linha { display: flex; gap: 8px; align-items: flex-start; }
+  .aviso-linha .ic svg { width: 16px; height: 16px; margin-top: 2px; }
+  .aviso-linha.aviso .ic { color: var(--warn); }
+  .aviso-linha.erro .ic { color: var(--danger); }
+  .aviso-linha.info .ic { color: var(--primary); }
+  .aviso-texto small { display: block; color: var(--text-3); font-size: 12.5px; }
+  details > summary { cursor: pointer; color: var(--primary); font-size: 13px; margin-top: 4px; }
+  details > summary::marker { color: var(--text-3); }
+  .lista-pastas { list-style: none; margin: 8px 0 0; padding: 0; max-height: 280px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .lista-pastas li { display: flex; gap: 8px; align-items: baseline; padding: 5px 10px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+  .lista-pastas li:last-child { border-bottom: 0; }
+  .lista-pastas li.clicavel { cursor: pointer; }
+  .lista-pastas li.clicavel:hover { background: var(--surface-2); }
+  .lista-pastas .bolinha { width: 8px; height: 8px; border-radius: 50%; background: var(--cor); flex: none; transform: translateY(-1px); }
+  .lista-pastas .caminho-txt { font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+  .lista-pastas .detalhe { color: var(--text-3); }
+  .filtro-lista { margin-top: 10px; max-width: 320px; }
+  .girando svg { animation: girar 1s linear infinite; }
+  @keyframes girar { to { transform: rotate(360deg); } }
+
+  /* ---------------------------------------------------------------- rodape */
+  .rodape {
+    display: flex; align-items: center; gap: 16px; padding: 10px 20px;
+    background: var(--surface); border-top: 1px solid var(--border);
+  }
+  .resumo {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+    border: 0; background: none; padding: 4px 6px; border-radius: var(--radius-sm); cursor: pointer; text-align: left;
+  }
+  .resumo:hover { background: var(--surface-2); }
+  .resumo .resultado-icone { width: 30px; height: 30px; }
+  .resumo .resultado-icone svg { width: 16px; height: 16px; }
+  .resumo-texto { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .resumo-avisos { font-size: 12px; font-weight: 600; color: var(--warn); background: var(--warn-soft); padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .rodape-acoes { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .salvo { display: inline-flex; align-items: center; gap: 6px; color: var(--text-3); font-size: 13px; white-space: nowrap; }
+  .salvo::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+  .salvo.sujo { color: var(--warn); }
+  .salvo.sujo::before { background: var(--warn); }
+  .salvo.limpo::before { background: var(--ok); }
+
+  /* ---------------------------------------------------------------- dialogos, avisos flutuantes, telas */
+  dialog.dialogo {
+    border: 0; border-radius: 12px; padding: 0; width: min(620px, calc(100vw - 32px));
+    background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg);
+  }
+  dialog.dialogo::backdrop { background: rgba(10, 15, 25, .45); }
+  .dialogo h2 { margin: 0; padding: 18px 22px 0; font-size: 17px; }
+  .dialogo-corpo { padding: 10px 22px 4px; color: var(--text-2); display: grid; gap: 10px; }
+  .dialogo-corpo p { margin: 0; }
+  .dialogo-corpo ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .dialogo-botoes { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 22px 18px; }
+  pre.arquivo {
+    margin: 0; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); font: 12px/1.5 var(--mono); color: var(--text);
+    max-height: 50vh; overflow: auto; white-space: pre;
+  }
+  #toasts { position: fixed; right: 20px; bottom: 76px; display: grid; gap: 8px; z-index: 20; max-width: min(440px, calc(100vw - 40px)); }
+  .toast {
+    background: var(--text); color: var(--surface); padding: 10px 14px; border-radius: 8px;
+    box-shadow: var(--shadow-lg); font-size: 13.5px; transition: opacity .3s, transform .3s;
+  }
+  .toast.erro { background: var(--danger); color: #fff; }
+  .toast.ok { background: var(--ok); color: #fff; }
+  .toast.saindo { opacity: 0; transform: translateY(6px); }
+  .tela-cheia {
+    position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px;
+    background: var(--bg);
+  }
+  .tela-caixa {
+    max-width: 560px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 26px 28px; box-shadow: var(--shadow-lg);
+  }
+  .tela-caixa h2 { margin: 0 0 8px; font-size: 19px; }
+  .tela-caixa p { margin: 0 0 10px; color: var(--text-2); }
+  .tela-caixa textarea {
+    width: 100%; height: 160px; font: 12px/1.5 var(--mono); padding: 10px; border-radius: 6px;
+    border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+  }
+
+  @media (max-width: 980px) {
+    main { grid-template-columns: 1fr; grid-template-rows: minmax(260px, 42%) 1fr; }
+    .col-arvore { border-right: 0; border-bottom: 1px solid var(--border); }
+    .raiz span { max-width: 22ch; }
+    .nivel-cab { grid-template-columns: 24px minmax(0, 1fr) 16px; }
+    .nivel-cab .nivel-regra { grid-column: 2 / 4; }
+    .nivel-cab .nivel-chev { display: none; }
+    .nivel-painel { padding-left: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="sem-js" class="tela-cheia">
+  <div class="tela-caixa">
+    <h2>Este navegador não consegue abrir o mapeador</h2>
+    <p>Copie o endereço da barra do navegador e abra no <b>Microsoft Edge</b> ou no <b>Google Chrome</b>.</p>
+    <p>O endereço também aparece na janela preta do <b>mapear.bat</b>.</p>
+  </div>
+</div>
+
+<header class="topo">
+  <div class="marca">
+    <div class="marca-icone" id="marca-icone"></div>
+    <div>
+      <h1>Mapeador de pastas</h1>
+      <div class="sub" id="sub-topo">Robô Tareffa</div>
+    </div>
+  </div>
+  <div class="topo-dir">
+    <span class="raiz" id="raiz" title="PASTA_INICIAL do parametros.txt"></span>
+    <button class="btn discreto" id="btn-atualizar" title="Ler de novo as pastas do cliente (para ver pastas criadas agora)"></button>
+    <button class="btn discreto" id="btn-encerrar" title="Fechar o mapeador"></button>
+  </div>
+</header>
+
+<div id="faixas"></div>
+
+<main>
+  <section class="col-arvore" aria-label="Pastas do cliente">
+    <div class="col-cab">
+      <h2>Pastas do cliente</h2>
+      <p class="legenda" id="legenda"></p>
+    </div>
+    <div id="arvore" role="tree" aria-label="Pastas do cliente"></div>
+    <div id="acao-pasta"></div>
+  </section>
+
+  <section class="col-direita" id="col-direita">
+    <div class="secao-cab">
+      <h2>Caminhos monitorados</h2>
+      <span class="conta" id="conta-caminhos"></span>
+    </div>
+    <div id="caminhos"></div>
+    <div id="resultado" class="cartao" hidden></div>
+  </section>
+</main>
+
+<footer class="rodape">
+  <button class="resumo" id="resumo" title="Ver o resultado da conferência"></button>
+  <div class="rodape-acoes">
+    <span class="salvo" id="estado-salvo"></span>
+    <button class="btn" id="btn-arquivo"></button>
+    <button class="btn primario grande" id="btn-salvar"></button>
+  </div>
+</footer>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+'use strict';
+
+// =====================================================================================  base
+
+const TOKEN = decodeURIComponent(location.hash.slice(1));
+const CORES = ['#2f6fed', '#1a9c5a', '#d9822b', '#8e4ad8', '#d6455d', '#0f9aa8', '#c2408f', '#6b8e23'];
+const TOKENS = { ano: '$ANO', mes: '$MES', mesAno: '$MES.ANO', anoMes: '$ANO.MES' };
+const LIMITE_LISTA = 300;
+
+const S = {
+  cfg: null,
+  caminhos: [],               // [{id, nome, exemplo, niveis, linhaBruta}]
+  selecionado: null,          // id do caminho aberto
+  nivelAberto: null,          // indice do nivel aberto no caminho selecionado
+  sujo: false,
+  salvouNestaSessao: false,
+  arvore: new Map(),          // caminho relativo -> {pastas:[{nome, doRobo}], semAcesso}
+  carregando: new Map(),      // caminho relativo -> Promise
+  abertas: new Set(['']),
+  pastaSelecionada: null,
+  nomes: new Map(),           // chave -> NomesNoNivel
+  nomesPedidos: new Set(),
+  previa: null,               // ultima Previa aplicada (situacao "ok")
+  previaStatus: 'vazia',      // vazia | calculando | pronta | falhou
+  previaFalha: null,
+  linhaPorCaminho: new Map(), // linha do texto -> id do caminho
+  errosPorCaminho: new Map(), // id -> mensagem do parser
+  alvos: new Map(),           // caminho relativo -> [ids de caminho]
+  contagemAbaixo: new Map(),  // caminho relativo -> quantas pastas-alvo ha abaixo
+  primeiroAlvo: new Map(),    // id -> caminho relativo de uma pasta-alvo dele
+  filtroAlvos: '',
+  detalhesAbertos: new Set(),
+  filtrosNomes: new Map()
+};
+let proximoId = 1;
+
+const $ = seletor => document.querySelector(seletor);
+
+function h(tag, props, ...filhos) {
+  const el = document.createElement(tag);
+  if (props) {
+    for (const [chave, valor] of Object.entries(props)) {
+      if (valor === null || valor === undefined || valor === false) continue;
+      if (chave === 'class') el.className = valor;
+      else if (chave.startsWith('on')) el.addEventListener(chave.slice(2), valor);
+      else if (valor === true) el.setAttribute(chave, '');
+      else el.setAttribute(chave, valor);
+    }
+  }
+  for (const filho of filhos.flat(Infinity)) {
+    if (filho === null || filho === undefined || filho === false) continue;
+    el.append(filho instanceof Node ? filho : document.createTextNode(String(filho)));
+  }
+  return el;
+}
+
+// Desenhos fixos, escritos aqui mesmo - nunca dado vindo de fora.
+const DESENHOS = {
+  chevron: '<path d="M9 6l6 6-6 6"/>',
+  setaDir: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  pasta: '<path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor" fill-opacity=".22"/>',
+  pastaAberta: '<path d="M3 17.5V7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.2h7.5A2.5 2.5 0 0 1 21 9.7V11"/><path d="M3 17.5l2.3-5.4A2 2 0 0 1 7.1 11H21l-2.6 7a2 2 0 0 1-1.9 1.3h-12A1.5 1.5 0 0 1 3 17.5z" fill="currentColor" fill-opacity=".22"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  menos: '<path d="M6 12h12"/>',
+  alerta: '<path d="M10.3 4.2L2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4"/><path d="M12 17h.01"/>',
+  erro: '<circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  mais: '<path d="M12 5v14M5 12h14"/>',
+  lixo: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/>',
+  copiar: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/>',
+  atualizar: '<path d="M20 11.5A8 8 0 1 0 17.7 17"/><path d="M20 4.5v7h-7"/>',
+  desligar: '<path d="M12 3.5v8"/><path d="M6.5 6.8a7.5 7.5 0 1 0 11 0"/>',
+  arquivo: '<path d="M14 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
+  salvar: '<path d="M5 3.5h11l4.5 4.5v10.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2v-13a2 2 0 0 1 1.5-2z"/><path d="M7.5 3.5v5h8v-5"/><path d="M7.5 20.5v-6.5h9v6.5"/>',
+  alvo: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
+  cadeado: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>',
+  girar: '<path d="M12 3a9 9 0 1 0 9 9"/>',
+  marca: '<path d="M3.5 8A2.5 2.5 0 0 1 6 5.5h3.5L11.7 8H18a2.5 2.5 0 0 1 2.5 2.5v7A2.5 2.5 0 0 1 18 20H6a2.5 2.5 0 0 1-2.5-2.5z"/><path d="M8.5 14l2.5 2.5 4.5-5"/>'
+};
+
+function icone(nome, classe) {
+  const span = h('span', { class: 'ic' + (classe ? ' ' + classe : ''), 'aria-hidden': 'true' });
+  span.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+    + 'stroke-linecap="round" stroke-linejoin="round">' + DESENHOS[nome] + '</svg>';
+  return span;
+}
+
+function plural(n, um, varios) {
+  return n.toLocaleString('pt-BR') + ' ' + (n === 1 ? um : varios);
+}
+function aspas(texto) { return '“' + texto + '”'; }
+function minusculaInicial(texto) { return texto.charAt(0).toLowerCase() + texto.slice(1); }
+function listaFalada(itens, conjuncao) {
+  if (itens.length <= 1) return itens.join('');
+  return itens.slice(0, -1).join(', ') + ' ' + conjuncao + ' ' + itens[itens.length - 1];
+}
+
+/** A mesma normalizacao do robo (CustomizacaoRule.normalizar): sem acento, so letras e numeros. */
+function normalizar(texto) {
+  return String(texto).normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
+function juntar(rel, nome) { return rel ? rel + '/' + nome : nome; }
+function partesDe(rel) { return rel ? rel.split('/') : []; }
+function paiDe(rel) { const i = rel.lastIndexOf('/'); return i < 0 ? '' : rel.slice(0, i); }
+function caminhoLegivel(rel) { return rel === '' ? (S.cfg ? S.cfg.pastaInicial : '') : rel.split('/').join(' / '); }
+
+// =====================================================================================  servidor
+
+async function chamar(metodo, rota, corpo) {
+  let resposta;
+  try {
+    resposta = await fetch(rota, {
+      method: metodo,
+      cache: 'no-store',
+      headers: corpo === undefined
+        ? { 'X-Token': TOKEN }
+        : { 'X-Token': TOKEN, 'Content-Type': 'application/json' },
+      body: corpo === undefined ? undefined : JSON.stringify(corpo)
+    });
+  } catch (e) {
+    mostrarDesconectado();
+    throw new Error('O mapeador não está respondendo.');
+  }
+  let dados = null;
+  try { dados = await resposta.json(); } catch (e) { /* resposta sem corpo */ }
+  if (resposta.status === 403) {
+    mostrarSemToken();
+  }
+  if (!resposta.ok) {
+    throw new Error((dados && dados.erro) || ('Erro ' + resposta.status));
+  }
+  return dados;
+}
+
+// =====================================================================================  modelo
+
+function nivelVazio() {
+  return { modo: 'todas', incluir: [], excluir: [], data: 'ano', texto: '' };
+}
+
+function segmentoDe(n) {
+  const termo = (t, negado) => (negado ? '!' : '') + (t.exato ? '=' : '') + t.termo;
+  switch (n.modo) {
+    case 'todas': return '*';
+    case 'nomes': return n.incluir.map(t => termo(t, false)).join('@');
+    case 'menos': return n.excluir.length ? n.excluir.map(t => termo(t, true)).join('@') : '*';
+    case 'data': return TOKENS[n.data];
+    case 'avancado': return n.texto.trim();
+  }
+  return '*';
+}
+
+function linhaDoCaminho(c) {
+  return c.linhaBruta !== null ? c.linhaBruta.trim() : c.niveis.map(segmentoDe).join('/');
+}
+
+/**
+ * Deixa um nome de pasta pronto para virar termo do mapa. "@" separa alternativas e nao tem
+ * escape - um nome com "@" vira o seu maior pedaco, que continua casando a pasta por "contem".
+ * Os caracteres especiais do inicio ($ ! = * #) nao mudam nada no casamento (a normalizacao os
+ * descarta), mas mudariam o sentido da regra.
+ */
+function termoSeguro(nome) {
+  const pedacos = String(nome).split('@');
+  let termo = pedacos.reduce((a, b) => normalizar(b).length > normalizar(a).length ? b : a);
+  termo = termo.replace(/[\/\\|]/g, ' ').replace(/^[\s!=$*#]+/, '').trim();
+  return { termo, cortado: pedacos.length > 1 };
+}
+
+/**
+ * Termo para um nome escolhido numa lista. Por padrao casa por "contem" (o que o robo faz com um
+ * nome escrito), mas se isso tambem pegaria outra pasta da mesma lista ("DMED" pegaria "DMED
+ * ANTIGO"), ja sai como nome exato.
+ */
+function termoPara(nome, outrosNomes) {
+  const { termo, cortado } = termoSeguro(nome);
+  const n = normalizar(termo);
+  const colide = n !== '' && outrosNomes.some(o => o !== nome && normalizar(o).includes(n));
+  return { termo, exato: colide && !cortado };
+}
+
+/** Reconhece pastas de data pelo mesmo formato que os tokens do robo aceitam. */
+function tipoDeData(nome) {
+  const n = normalizar(nome);
+  const anoPlausivel = a => +a >= 1990 && +a <= 2100;
+  let m = /^(0?[1-9]|1[0-2])(\d{4})$/.exec(n);
+  if (m && anoPlausivel(m[2])) return 'mesAno';
+  m = /^(\d{4})(0?[1-9]|1[0-2])$/.exec(n);
+  if (m && anoPlausivel(m[1])) return 'anoMes';
+  m = /^\D*(\d{4})\D*$/.exec(nome);
+  if (m && anoPlausivel(m[1])) return 'ano';
+  if (/^\s*(0?[1-9]|1[0-2])\s*$/.test(nome)) return 'mes';
+  if (/^\s*(0?[1-9]|1[0-2])\s*[-_.\s]\s*(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/i.test(nome)) return 'mes';
+  return null;
+}
+
+/** Sugestao para um nivel do caminho de exemplo. O analista confere todas na tela. */
+function sugerirNivel(nome, irmaos) {
+  const n = nivelVazio();
+  const data = tipoDeData(nome);
+  if (data) {
+    n.modo = 'data';
+    n.data = data;
+    return n;
+  }
+  if (irmaos.length >= 8) {
+    n.modo = 'todas';
+    return n;
+  }
+  n.modo = 'nomes';
+  n.incluir = [termoPara(nome, irmaos)];
+  return n;
+}
+
+function problemaDoNivel(n) {
+  if (n.modo === 'nomes' && !n.incluir.length) return 'escolha pelo menos um nome';
+  const termos = n.modo === 'nomes' ? n.incluir : n.modo === 'menos' ? n.excluir : [];
+  for (const t of termos) {
+    if (!normalizar(t.termo)) return aspas(t.termo) + ' não tem letra nem número';
+  }
+  if (n.modo === 'avancado') {
+    const t = n.texto.trim();
+    if (!t) return 'escreva a regra';
+    if (/[\/\\]/.test(t)) return 'a regra de um nível não pode ter barra';
+  }
+  return null;
+}
+
+function problemaDoCaminho(c) {
+  if (c.linhaBruta !== null) return c.linhaBruta.trim() ? null : 'a linha está vazia';
+  for (let i = 0; i < c.niveis.length; i++) {
+    const p = problemaDoNivel(c.niveis[i]);
+    if (p) return 'nível ' + (i + 1) + ': ' + p;
+  }
+  if (segmentoDe(c.niveis[0]).startsWith('#')) return 'nível 1 não pode começar com #';
+  return null;
+}
+
+function resumoDoNivel(n) {
+  switch (n.modo) {
+    case 'todas': return 'Todas as pastas';
+    case 'nomes':
+      return n.incluir.length
+        ? 'Só ' + listaFalada(n.incluir.map(t => (t.exato ? 'exatamente ' : '') + aspas(t.termo)), 'ou')
+        : 'Só… (falta escolher)';
+    case 'menos':
+      return n.excluir.length ? 'Todas, menos ' + listaFalada(n.excluir.map(t => aspas(t.termo)), 'e') : 'Todas as pastas';
+    case 'data': return descricaoData(n.data).titulo;
+    case 'avancado': return 'Regra: ' + (n.texto.trim() || '(vazia)');
+  }
+  return '';
+}
+
+function descricaoData(tipo) {
+  const anos = S.cfg ? S.cfg.anoMinimo + ' e ' + S.cfg.anoMaximo : 'ano atual e anterior';
+  const ano = S.cfg ? S.cfg.anoMaximo : new Date().getFullYear();
+  return {
+    ano: { titulo: 'Pasta de ano (' + anos + ')', exemplo: 'ex.: ' + ano + ', Ano ' + ano },
+    mes: { titulo: 'Pasta de mês', exemplo: 'ex.: 01, 1, 01 - Janeiro' },
+    mesAno: { titulo: 'Pasta de mês e ano', exemplo: 'ex.: 01.' + ano + ', 12-' + (ano - 1) + ', 01' + ano },
+    anoMes: { titulo: 'Pasta de ano e mês', exemplo: 'ex.: ' + ano + '.01' }
+  }[tipo];
+}
+
+/** Pedacinho do caminho para a trilha do cartao: nome literal, ou um rotulo destacado. */
+function rotuloCurto(n) {
+  switch (n.modo) {
+    case 'todas': return { texto: 'todas', especial: true };
+    case 'nomes':
+      return n.incluir.length === 1
+        ? { texto: (n.incluir[0].exato ? '= ' : '') + n.incluir[0].termo, especial: false }
+        : { texto: n.incluir.map(t => t.termo).join(' ou ') || '?', especial: true };
+    case 'menos': return { texto: 'todas menos ' + n.excluir.map(t => t.termo).join(', '), especial: true };
+    case 'data': return { texto: { ano: 'ano', mes: 'mês', mesAno: 'mês.ano', anoMes: 'ano.mês' }[n.data], especial: true };
+    case 'avancado': return { texto: n.texto.trim() || '?', especial: true, mono: true };
+  }
+  return { texto: '?', especial: true };
+}
+
+/** O inverso de segmentoDe, para mostrar na tela um mapa que ja existia. */
+function nivelDeSegmento(segmento) {
+  const s = segmento.trim();
+  const n = nivelVazio();
+  const avancado = () => { n.modo = 'avancado'; n.texto = s; return n; };
+
+  if (s === '*') return n;
+  for (const [tipo, token] of Object.entries(TOKENS)) {
+    if (s.toUpperCase() === token) { n.modo = 'data'; n.data = tipo; return n; }
+  }
+  if (s.includes('|')) return avancado();
+
+  const positivos = [];
+  const negativos = [];
+  let temAsterisco = false;
+  for (const bruto of s.split('@')) {
+    let a = bruto.trim();
+    let negado = false;
+    if (a.startsWith('*!')) { negado = true; a = a.slice(2).trim(); }
+    else if (a.startsWith('!')) { negado = true; a = a.slice(1).trim(); }
+    if (a === '*' && !negado) { temAsterisco = true; continue; }
+    if (!a || a === '*' || a.startsWith('$')) return avancado();
+    let exato = false;
+    if (a.startsWith('=')) {
+      exato = true;
+      a = a.slice(1).trim();
+      if (!a) return avancado();
+    }
+    (negado ? negativos : positivos).push({ termo: a, exato });
+  }
+  if (positivos.length && !negativos.length && !temAsterisco) { n.modo = 'nomes'; n.incluir = positivos; return n; }
+  if (!positivos.length && negativos.length) { n.modo = 'menos'; n.excluir = negativos; return n; }
+  if (!positivos.length && !negativos.length && temAsterisco) return n;
+  return avancado();
+}
+
+function normalizarRaiz(caminho) {
+  return caminho.replace(/\\/g, '/').toLowerCase().trim().replace(/\/+$/, '');
+}
+
+function caminhoDeLinha(linha, nome) {
+  const c = { id: proximoId++, nome: nome || '', nomeAutomatico: false, exemplo: null, niveis: [], linhaBruta: null };
+  let resto = linha.trim();
+  if (/^[A-Za-z]:[\\/]/.test(resto) || /^[\\/]{2}/.test(resto)) {
+    const raiz = normalizarRaiz(S.cfg.pastaInicial);
+    const normalizada = normalizarRaiz(resto);
+    if (normalizada === raiz || !normalizada.startsWith(raiz + '/')) { c.linhaBruta = linha.trim(); return c; }
+    resto = resto.slice(raiz.length).replace(/^[\\/]+/, '');
+  }
+  resto = resto.replace(/[\\/]+$/, '');
+  const segmentos = resto.split(/[\\/]/);
+  if (!resto || segmentos.length > 20 || segmentos.some(p => !p.trim())) { c.linhaBruta = linha.trim(); return c; }
+  c.niveis = segmentos.map(nivelDeSegmento);
+  return c;
+}
+
+/** Le um mapa-pastas.txt: o comentario logo acima de uma linha (sem linha em branco no meio) vira o nome do caminho. */
+function importar(texto) {
+  const caminhos = [];
+  let comentario = null;
+  for (const bruta of texto.replace(/^﻿/, '').split(/\r\n|\r|\n/)) {
+    const linha = bruta.trim();
+    if (!linha) { comentario = null; continue; }
+    if (linha.startsWith('#')) {
+      const t = linha.replace(/^#+/, '').trim();
+      comentario = t && !/^[=\-_*~#.\s]+$/.test(t) ? t.slice(0, 80) : null;
+      continue;
+    }
+    const c = caminhoDeLinha(linha, comentario);
+    if (!c.nome && c.linhaBruta === null) {
+      c.nome = nomePadrao(c.niveis, caminhos.length);
+      c.nomeAutomatico = true;
+    }
+    caminhos.push(c);
+    comentario = null;
+  }
+  return caminhos;
+}
+
+function dataHora(d) {
+  const p = n => String(n).padStart(2, '0');
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+/**
+ * O texto do mapa-pastas.txt. E o mesmo para a previa e para o salvamento, entao o numero de
+ * linha que o servidor cita num erro aponta para o caminho certo.
+ */
+function gerarTexto(deixarDeFora) {
+  const linhas = [
+    '# ==========================================================================',
+    '#  MAPA DE PASTAS do Robo Tareffa - montado pelo mapeador (mapear.bat)',
+    '#  Ultima alteracao: ' + dataHora(new Date()) + (S.cfg ? ' - usuario ' + S.cfg.usuario : ''),
+    '#',
+    '#  Prefira alterar pelo mapear.bat: ele mostra as pastas encontradas antes',
+    '#  de salvar. A escrita deste arquivo esta explicada no mapa-pastas.txt.example.',
+    '# ==========================================================================',
+    ''
+  ];
+  const linhaPorCaminho = new Map();
+  const incompletos = [];
+  for (const c of S.caminhos) {
+    if (problemaDoCaminho(c)) { incompletos.push(c); continue; }
+    if (deixarDeFora && deixarDeFora.has(c.id)) continue;
+    const nome = c.nome.replace(/[\r\n]+/g, ' ').trim();
+    if (nome) linhas.push('# ' + nome);
+    linhas.push(linhaDoCaminho(c));
+    linhaPorCaminho.set(linhas.length, c.id);
+    linhas.push('');
+  }
+  return { texto: linhas.join('\r\n'), linhaPorCaminho, incompletos };
+}
+
+function caminhoPorId(id) { return S.caminhos.find(c => c.id === id) || null; }
+function caminhoSelecionado() { return caminhoPorId(S.selecionado); }
+function corDe(id) {
+  const i = S.caminhos.findIndex(c => c.id === id);
+  return CORES[(i < 0 ? 0 : i) % CORES.length];
+}
+function nomeDe(c) { return c.nome.trim() || 'Caminho sem nome'; }
+function ehDoRobo(nome) {
+  return !!S.cfg && S.cfg.pastasDoRobo.some(r => normalizar(r) === normalizar(nome));
+}
+function exemploDe(c) {
+  return c.exemplo || S.primeiroAlvo.get(c.id) || null;
+}
+
+function marcarSujo() {
+  S.sujo = true;
+  renderRodape();
+}
+
+// =====================================================================================  arvore
+
+function carregarPasta(rel) {
+  if (S.arvore.has(rel)) return Promise.resolve(S.arvore.get(rel));
+  if (S.carregando.has(rel)) return S.carregando.get(rel);
+  const promessa = chamar('GET', '/api/subpastas?caminho=' + encodeURIComponent(rel))
+    .catch(e => ({ caminho: rel, pastas: [], semAcesso: true, falha: e.message }))
+    .then(dados => {
+      S.arvore.set(rel, dados);
+      S.carregando.delete(rel);
+      renderArvore();
+      return dados;
+    });
+  S.carregando.set(rel, promessa);
+  return promessa;
+}
+
+function abrirPasta(rel) {
+  S.abertas.add(rel);
+  carregarPasta(rel);
+}
+
+function alternarPasta(rel) {
+  if (S.abertas.has(rel)) S.abertas.delete(rel);
+  else abrirPasta(rel);
+  renderArvore();
+}
+
+function selecionarPasta(rel) {
+  S.pastaSelecionada = rel;
+  if (!S.abertas.has(rel)) abrirPasta(rel);
+  renderArvore();
+}
+
+/** Abre todas as pastas acima de rel e rola a arvore ate ela. */
+async function revelar(rel, selecionar) {
+  let atual = '';
+  S.abertas.add('');
+  await carregarPasta('');
+  const partes = partesDe(rel);
+  for (let i = 0; i < partes.length - 1; i++) {
+    atual = juntar(atual, partes[i]);
+    S.abertas.add(atual);
+    await carregarPasta(atual);
+  }
+  if (selecionar) S.pastaSelecionada = rel;
+  renderArvore();
+  requestAnimationFrame(() => {
+    const el = document.querySelector('[data-rel="' + CSS.escape(rel) + '"]');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function prefixosDoExemploSelecionado() {
+  const c = caminhoSelecionado();
+  const exemplo = c ? exemploDe(c) : null;
+  const prefixos = new Set();
+  if (!exemplo) return prefixos;
+  let atual = '';
+  for (const parte of partesDe(exemplo)) {
+    atual = juntar(atual, parte);
+    prefixos.add(atual);
+  }
+  return prefixos;
+}
+
+function renderArvore() {
+  const cont = $('#arvore');
+  const prefixos = prefixosDoExemploSelecionado();
+  const raiz = noDaArvore('', S.cfg ? S.cfg.pastaInicial : '', 0, false, prefixos);
+  cont.textContent = '';
+  cont.append(raiz);
+  renderAcaoDaPasta();
+}
+
+function noDaArvore(rel, nome, nivel, doRobo, prefixos) {
+  const aberta = S.abertas.has(rel);
+  const dados = S.arvore.get(rel);
+  const alvo = S.alvos.get(rel);
+  const dentro = S.contagemAbaixo.get(rel) || 0;
+
+  const linha = h('div', {
+      class: 'arvore-linha' + (S.pastaSelecionada === rel ? ' selecionada' : '')
+        + (doRobo ? ' do-robo' : '') + (prefixos.has(rel) ? ' no-exemplo' : ''),
+      style: '--nivel:' + nivel,
+      'data-rel': rel,
+      role: 'treeitem',
+      'aria-expanded': String(aberta),
+      'aria-selected': String(S.pastaSelecionada === rel),
+      tabindex: '0',
+      onclick: () => selecionarPasta(rel),
+      onkeydown: ev => teclaNaArvore(ev, rel)
+    },
+    h('button', {
+      class: 'seta' + (aberta ? ' aberta' : ''), tabindex: '-1',
+      'aria-label': aberta ? 'Fechar pasta' : 'Abrir pasta',
+      onclick: ev => { ev.stopPropagation(); alternarPasta(rel); }
+    }, icone('chevron')),
+    icone(aberta ? 'pastaAberta' : 'pasta', 'ic-pasta'),
+    h('span', { class: 'arvore-nome', title: nome }, nome),
+    doRobo ? h('span', { class: 'etiqueta neutra', title: 'Pasta de trabalho do próprio robô' }, 'do robô') : null,
+    alvo
+      ? h('span', { class: 'marca-alvo', style: '--cor:' + corDe(alvo[0]), title: 'O robô vai monitorar esta pasta' },
+          icone('check'), 'monitorada')
+      : dentro
+        ? h('span', { class: 'marca-dentro', title: plural(dentro, 'pasta monitorada', 'pastas monitoradas') + ' aqui dentro' },
+            dentro.toLocaleString('pt-BR'))
+        : null
+  );
+
+  const no = h('div', { role: 'none' }, linha);
+  if (!aberta) return no;
+
+  const filhos = h('div', { role: 'group' });
+  const info = (ic, texto) => h('div', { class: 'arvore-info', style: '--nivel:' + (nivel + 1) }, ic ? icone(ic) : null, texto);
+  if (!dados) filhos.append(info('girar', 'Carregando…'));
+  else if (dados.semAcesso) filhos.append(info('cadeado', 'Sem permissão para abrir esta pasta'));
+  else if (!dados.pastas.length) filhos.append(info(null, 'Nenhuma subpasta'));
+  else for (const p of dados.pastas) filhos.append(noDaArvore(juntar(rel, p.nome), p.nome, nivel + 1, p.doRobo, prefixos));
+  no.append(filhos);
+  return no;
+}
+
+function teclaNaArvore(ev, rel) {
+  if (ev.key === 'Enter' || ev.key === ' ') {
+    ev.preventDefault();
+    selecionarPasta(rel);
+  } else if (ev.key === 'ArrowRight') {
+    ev.preventDefault();
+    if (!S.abertas.has(rel)) { abrirPasta(rel); renderArvore(); }
+  } else if (ev.key === 'ArrowLeft') {
+    ev.preventDefault();
+    if (S.abertas.has(rel) && rel !== '') { S.abertas.delete(rel); renderArvore(); }
+  } else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    ev.preventDefault();
+    const linhas = Array.from(document.querySelectorAll('.arvore-linha'));
+    const i = linhas.indexOf(ev.currentTarget);
+    const proxima = linhas[i + (ev.key === 'ArrowDown' ? 1 : -1)];
+    if (proxima) proxima.focus();
+    return;
+  } else {
+    return;
+  }
+  requestAnimationFrame(() => {
+    const el = document.querySelector('[data-rel="' + CSS.escape(rel) + '"]');
+    if (el) el.focus();
+  });
+}
+
+function motivoParaNaoUsar(rel) {
+  if (rel === '') return { texto: 'A pasta inicial não pode ser a pasta das guias. Abra as pastas e escolha uma de dentro.' };
+  const partes = partesDe(rel);
+  if (partes.length > 20) return { texto: 'Esta pasta está funda demais: o mapa aceita no máximo 20 níveis.' };
+  const i = partes.findIndex(ehDoRobo);
+  if (i < 0) return null;
+  const nome = partes[i];
+  const enviar = S.cfg.pastaEnviar;
+  if (i === partes.length - 1 && enviar && normalizar(nome) === normalizar(enviar)) {
+    return {
+      texto: aspas(nome) + ' é a PASTA_ENVIAR: o robô já procura as guias dentro dela. Use a pasta de cima.',
+      usarPai: true
+    };
+  }
+  if (i < partes.length - 1) return { texto: 'Esta pasta fica dentro de ' + aspas(nome) + ', que é uma pasta de trabalho do próprio robô.' };
+  return { texto: aspas(nome) + ' é uma pasta de trabalho do próprio robô (é onde ele guarda o que já enviou ou o que deu erro).' };
+}
+
+function renderAcaoDaPasta() {
+  const box = $('#acao-pasta');
+  box.textContent = '';
+  const rel = S.pastaSelecionada;
+  if (rel === null) {
+    box.append(h('p', { class: 'dica' }, 'Clique numa pasta para selecioná-la. Comece por uma pasta onde o cliente coloca as guias.'));
+    return;
+  }
+  box.append(h('div', { class: 'acao-rotulo' }, 'Pasta selecionada'));
+  box.append(h('div', { class: 'acao-caminho' }, caminhoLegivel(rel)));
+
+  const motivo = motivoParaNaoUsar(rel);
+  if (motivo) {
+    box.append(h('p', { class: 'nota aviso' }, icone('alerta'), motivo.texto));
+    if (motivo.usarPai) {
+      box.append(h('div', { class: 'acao-botoes' },
+        h('button', { class: 'btn primario', onclick: () => usarComoExemplo(paiDe(rel)) }, icone('alvo'), 'Usar a pasta de cima como pasta das guias')));
+    }
+    return;
+  }
+
+  const alvo = S.alvos.get(rel);
+  if (alvo) {
+    const c = caminhoPorId(alvo[0]);
+    box.append(h('p', { class: 'nota ok' }, icone('check'),
+      'O robô já vai monitorar esta pasta' + (c ? ' (caminho ' + aspas(nomeDe(c)) + ')' : '') + '.'));
+  }
+  const botoes = h('div', { class: 'acao-botoes' },
+    h('button', { class: 'btn primario', onclick: () => usarComoExemplo(rel) }, icone('alvo'),
+      alvo ? 'Criar outro caminho com esta pasta' : 'Usar como pasta das guias'));
+  const sel = caminhoSelecionado();
+  if (sel && sel.linhaBruta === null && sel.exemplo !== rel) {
+    botoes.append(h('button', { class: 'btn', onclick: () => trocarExemplo(sel, rel) }, 'Usar como novo exemplo de ' + aspas(nomeDe(sel))));
+  }
+  box.append(botoes);
+}
+
+// =====================================================================================  caminhos
+
+async function niveisDoExemplo(rel) {
+  const partes = partesDe(rel);
+  const niveis = [];
+  let acima = '';
+  for (const parte of partes) {
+    const dados = await carregarPasta(acima);
+    const irmaos = (dados && dados.pastas ? dados.pastas : []).map(p => p.nome);
+    niveis.push(sugerirNivel(parte, irmaos));
+    acima = juntar(acima, parte);
+  }
+  return niveis;
+}
+
+/**
+ * Nome inicial do caminho, tirado da propria estrutura: a ultima pasta fixa antes do primeiro
+ * nivel generalizado (o que distingue este caminho dos outros: "Tributos", "Declaracao
+ * Estaduais") e a pasta fixa do fim, se houver ("GUIAS"). Ex.: "Tributos › GUIAS".
+ */
+function nomePadrao(niveis, posicao) {
+  const fixos = niveis.map(n => n.modo === 'nomes' && n.incluir.length === 1 ? n.incluir[0].termo : null);
+  let primeiroGeral = fixos.indexOf(null);
+  if (primeiroGeral < 0) primeiroGeral = fixos.length - 1;
+  let base = -1;
+  for (let i = primeiroGeral - 1; i >= 0; i--) if (fixos[i]) { base = i; break; }
+  let fim = -1;
+  for (let i = fixos.length - 1; i > base; i--) if (fixos[i]) { fim = i; break; }
+  const partes = [];
+  if (base >= 0 && fim < 0 && base > 0 && fixos[base - 1]) partes.push(fixos[base - 1]);
+  if (base >= 0) partes.push(fixos[base]);
+  if (fim >= 0) partes.push(fixos[fim]);
+  return partes.length ? partes.join(' › ') : 'Caminho ' + (posicao + 1);
+}
+
+/** Enquanto o analista nao der um nome, o nome acompanha as mudancas nos niveis. */
+function atualizarNomeAutomatico(c) {
+  if (!c.nomeAutomatico || c.linhaBruta !== null) return;
+  c.nome = nomePadrao(c.niveis, S.caminhos.indexOf(c));
+}
+
+async function usarComoExemplo(rel) {
+  const niveis = await niveisDoExemplo(rel);
+  const c = { id: proximoId++, nome: nomePadrao(niveis, S.caminhos.length), nomeAutomatico: true, exemplo: rel, niveis, linhaBruta: null };
+  S.caminhos.push(c);
+  S.selecionado = c.id;
+  S.nivelAberto = null;
+  marcarSujo();
+  renderTudo();
+  agendarPrevia(0);
+  aviso('Caminho criado. Confira cada nível: onde houver uma pasta por empresa, escolha “Todas as pastas”.');
+  requestAnimationFrame(() => {
+    const el = document.querySelector('[data-caminho="' + c.id + '"]');
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+}
+
+async function trocarExemplo(c, rel) {
+  c.niveis = await niveisDoExemplo(rel);
+  c.exemplo = rel;
+  atualizarNomeAutomatico(c);
+  S.nivelAberto = null;
+  marcarSujo();
+  renderTudo();
+  agendarPrevia(0);
+  aviso('Exemplo trocado. Confira os níveis de novo.');
+}
+
+function selecionarCaminho(id) {
+  if (S.selecionado === id) {
+    S.selecionado = null;
+  } else {
+    S.selecionado = id;
+    S.nivelAberto = null;
+    const c = caminhoPorId(id);
+    const exemplo = c ? exemploDe(c) : null;
+    if (exemplo) revelar(exemplo, false);
+  }
+  renderCaminhos();
+  renderArvore();
+}
+
+function duplicarCaminho(c) {
+  const copia = JSON.parse(JSON.stringify(c));
+  copia.id = proximoId++;
+  copia.nome = nomeDe(c) + ' (cópia)';
+  copia.nomeAutomatico = false;
+  S.caminhos.splice(S.caminhos.indexOf(c) + 1, 0, copia);
+  S.selecionado = copia.id;
+  S.nivelAberto = null;
+  marcarSujo();
+  renderTudo();
+  agendarPrevia();
+}
+
+async function removerCaminho(c) {
+  const ok = await dialogo({
+    titulo: 'Remover o caminho ' + aspas(nomeDe(c)) + '?',
+    conteudo: [h('p', {}, 'As pastas que só ele alcança deixam de ser monitoradas quando você salvar.')],
+    botoes: [{ texto: 'Cancelar', valor: false }, { texto: 'Remover', classe: 'perigo', valor: true }]
+  });
+  if (!ok) return;
+  S.caminhos = S.caminhos.filter(x => x !== c);
+  if (S.selecionado === c.id) S.selecionado = null;
+  marcarSujo();
+  renderTudo();
+  agendarPrevia(0);
+}
+
+function alterouNivel(c) {
+  atualizarNomeAutomatico(c);
+  marcarSujo();
+  renderCaminhos();
+  agendarPrevia();
+}
+
+function mudarModo(c, n, i, modo) {
+  const segmentoAntes = problemaDoNivel(n) ? '' : segmentoDe(n);
+  const exemplo = exemploDe(c);
+  const nomeNoExemplo = exemplo ? partesDe(exemplo)[i] : null;
+  if (modo === 'nomes' && !n.incluir.length && nomeNoExemplo) n.incluir = [{ termo: termoSeguro(nomeNoExemplo).termo, exato: false }];
+  if (modo === 'data' && n.modo !== 'data') n.data = (nomeNoExemplo && tipoDeData(nomeNoExemplo)) || 'ano';
+  if (modo === 'avancado' && !n.texto.trim()) n.texto = segmentoAntes;
+  n.modo = modo;
+  alterouNivel(c);
+}
+
+function adicionarTermos(n, qual, digitado) {
+  let algum = false;
+  for (const pedaco of digitado.split('@')) {
+    const termo = pedaco.replace(/[\/\\|]/g, ' ').replace(/^[\s!=$*#]+/, '').trim();
+    if (!termo) continue;
+    if (!normalizar(termo)) { aviso(aspas(termo) + ' não tem letra nem número - o robô não teria como comparar.', 'erro'); continue; }
+    if (n[qual].some(t => normalizar(t.termo) === normalizar(termo))) continue;
+    n[qual].push({ termo, exato: false });
+    algum = true;
+  }
+  return algum;
+}
+
+function clicarNome(c, n, i, item, dados) {
+  if (item.doRobo) {
+    aviso(aspas(item.nome) + ' é uma pasta de trabalho do robô - ele nunca entra nela por engano.');
+    return;
+  }
+  const outros = dados.nomes.map(x => x.nome);
+  const mesmo = t => normalizar(t.termo) === normalizar(item.nome);
+  if (n.modo === 'todas') {
+    n.modo = 'menos';
+    n.excluir = [termoPara(item.nome, outros)];
+  } else if (n.modo === 'nomes') {
+    if (item.aceita) {
+      const k = n.incluir.findIndex(mesmo);
+      if (k < 0) {
+        aviso(aspas(item.nome) + ' entra porque contém o texto de um dos nomes escolhidos. Clique nesse nome lá em cima para exigir o nome exato.');
+        return;
+      }
+      n.incluir.splice(k, 1);
+    } else {
+      n.incluir.push(termoPara(item.nome, outros));
+    }
+  } else if (n.modo === 'menos') {
+    if (!item.aceita) {
+      const k = n.excluir.findIndex(mesmo);
+      if (k < 0) {
+        aviso(aspas(item.nome) + ' fica de fora porque contém o texto de uma das exceções. Clique na exceção lá em cima para exigir o nome exato.');
+        return;
+      }
+      n.excluir.splice(k, 1);
+    } else {
+      n.excluir.push(termoPara(item.nome, outros));
+    }
+  } else {
+    aviso('Para escolher pelos nomes, marque “Só nas pastas com estes nomes” ou “Em todas, menos nestas”.');
+    return;
+  }
+  alterouNivel(c);
+}
+
+// ------------------------------------------------------------------------- nomes de cada nivel
+
+function chaveDosNomes(c, i) {
+  if (c.linhaBruta !== null) return null;
+  const prefixo = [];
+  for (let k = 0; k < i; k++) {
+    if (problemaDoNivel(c.niveis[k])) return null;
+    prefixo.push(segmentoDe(c.niveis[k]));
+  }
+  const n = c.niveis[i];
+  const segmento = problemaDoNivel(n) ? '' : segmentoDe(n);
+  return { prefixo, segmento, id: JSON.stringify([prefixo, segmento]) };
+}
+
+function buscarNomes(chave) {
+  if (S.nomesPedidos.has(chave.id)) return;
+  S.nomesPedidos.add(chave.id);
+  chamar('POST', '/api/nomes-no-nivel', { prefixo: chave.prefixo, segmento: chave.segmento })
+    .catch(e => ({ pastasNoNivelAcima: 0, totalDeNomes: 0, nomes: [], erro: e.message }))
+    .then(dados => {
+      S.nomes.set(chave.id, dados);
+      S.nomesPedidos.delete(chave.id);
+      renderCaminhos();
+    });
+}
+
+// =====================================================================================  previa
+
+let relogioDaPrevia = null;
+let sequenciaDaPrevia = 0;
+
+function agendarPrevia(espera) {
+  clearTimeout(relogioDaPrevia);
+  if (!S.caminhos.length) {
+    sequenciaDaPrevia++;
+    aplicarPrevia(null, new Map(), new Map());
+    S.previaStatus = 'vazia';
+    renderDependentesDaPrevia();
+    return;
+  }
+  S.previaStatus = 'calculando';
+  renderDependentesDaPrevia();
+  relogioDaPrevia = setTimeout(rodarPrevia, espera === undefined ? 450 : espera);
+}
+
+/**
+ * Pede a previa ao servidor. Se uma linha nao passar no parser (so acontece com regra escrita a
+ * mao), ela e marcada no caminho e a previa roda de novo sem ela - assim um erro num caminho nao
+ * apaga o resultado dos outros.
+ */
+async function rodarPrevia() {
+  const minha = ++sequenciaDaPrevia;
+  const deixarDeFora = new Set();
+  const erros = new Map();
+  for (let tentativa = 0; tentativa < 25; tentativa++) {
+    const gerado = gerarTexto(deixarDeFora);
+    if (!gerado.linhaPorCaminho.size) {
+      aplicarPrevia(null, gerado.linhaPorCaminho, erros);
+      S.previaStatus = 'vazia';
+      renderDependentesDaPrevia();
+      return;
+    }
+    let r;
+    try {
+      r = await chamar('POST', '/api/previa', { texto: gerado.texto });
+    } catch (e) {
+      if (minha !== sequenciaDaPrevia) return;
+      S.previaStatus = 'falhou';
+      S.previaFalha = e.message;
+      renderDependentesDaPrevia();
+      return;
+    }
+    if (minha !== sequenciaDaPrevia || r.situacao === 'superada') return;
+    if (r.situacao === 'invalida' && gerado.linhaPorCaminho.has(r.linhaDoErro)) {
+      const id = gerado.linhaPorCaminho.get(r.linhaDoErro);
+      erros.set(id, r.erro.replace(/^mapa-pastas\.txt linha \d+: /, ''));
+      deixarDeFora.add(id);
+      continue;
+    }
+    if (r.situacao === 'invalida') {
+      S.previaStatus = 'falhou';
+      S.previaFalha = r.erro;
+      renderDependentesDaPrevia();
+      return;
+    }
+    aplicarPrevia(r, gerado.linhaPorCaminho, erros);
+    S.previaStatus = 'pronta';
+    renderDependentesDaPrevia();
+    return;
+  }
+}
+
+function aplicarPrevia(r, linhaPorCaminho, erros) {
+  S.previa = r;
+  S.linhaPorCaminho = linhaPorCaminho;
+  S.errosPorCaminho = erros;
+  S.alvos = new Map();
+  S.contagemAbaixo = new Map();
+  S.primeiroAlvo = new Map();
+  if (!r) return;
+  for (const alvo of r.alvos) {
+    const ids = alvo.linhas.map(l => linhaPorCaminho.get(l)).filter(id => id !== undefined);
+    S.alvos.set(alvo.caminho, ids);
+    for (const id of ids) if (!S.primeiroAlvo.has(id)) S.primeiroAlvo.set(id, alvo.caminho);
+    let acima = paiDe(alvo.caminho);
+    for (;;) {
+      S.contagemAbaixo.set(acima, (S.contagemAbaixo.get(acima) || 0) + 1);
+      if (acima === '') break;
+      acima = paiDe(acima);
+    }
+  }
+}
+
+function linhaDe(id) {
+  for (const [linha, outro] of S.linhaPorCaminho) if (outro === id) return linha;
+  return null;
+}
+
+function situacaoDoCaminho(c) {
+  const problema = problemaDoCaminho(c);
+  if (problema) return { tipo: 'incompleto', texto: problema };
+  if (S.errosPorCaminho.has(c.id)) return { tipo: 'erro', texto: S.errosPorCaminho.get(c.id) };
+  if (S.previaStatus === 'calculando') return { tipo: 'calculando' };
+  if (S.previaStatus !== 'pronta' || !S.previa) return { tipo: 'desconhecido' };
+  const linha = linhaDe(c.id);
+  if (linha === null) return { tipo: 'calculando' };
+  const n = S.previa.alvosPorLinha[linha] || 0;
+  return { tipo: n ? 'ok' : 'zero', n };
+}
+
+// =====================================================================================  render
+
+function renderTudo() {
+  renderCaminhos();
+  renderArvore();
+  renderResultado();
+  renderRodape();
+}
+
+function renderDependentesDaPrevia() {
+  renderCaminhos();
+  renderArvore();
+  renderResultado();
+  renderRodape();
+}
+
+function renderTopo() {
+  $('#marca-icone').append(icone('marca'));
+  $('#sub-topo').textContent = S.cfg.contabilidade + ' · robô Tareffa';
+  const raiz = $('#raiz');
+  raiz.textContent = '';
+  raiz.append(icone('pasta'), h('span', {}, S.cfg.pastaInicial));
+  $('#btn-atualizar').append(icone('atualizar'), 'Atualizar pastas');
+  $('#btn-encerrar').append(icone('desligar'), 'Encerrar');
+  $('#btn-arquivo').append(icone('arquivo'), 'Ver arquivo');
+  $('#btn-salvar').append(icone('salvar'), 'Salvar mapa');
+  const legenda = $('#legenda');
+  legenda.append(
+    h('span', {}, h('span', { class: 'marca-alvo', style: '--cor:' + CORES[0] + ';margin:0' }, icone('check'), 'monitorada')),
+    h('span', {}, h('span', { class: 'marca-dentro', style: 'margin:0' }, '12'), 'pastas monitoradas lá dentro'));
+}
+
+function renderFaixas() {
+  const box = $('#faixas');
+  box.textContent = '';
+  const c = S.cfg;
+  if (c.erroMapa) {
+    box.append(h('div', { class: 'faixa erro' }, icone('erro'), h('div', {},
+      h('b', {}, 'O mapa-pastas.txt atual tem um problema e o robô não está enviando nada. '),
+      c.erroMapa, ' Corrija abaixo e salve.')));
+  }
+  if (c.modoAtual === 'NIVEIS') {
+    const custom = c.customizacao ? ', CUSTOMIZACAO=' + c.customizacao : '';
+    box.append(h('div', { class: 'faixa info' }, icone('info'), h('div', {},
+      'Hoje este robô ', h('b', {}, 'não usa mapa'), ': ele procura as pastas pelo parametros.txt (NIVEIS_SUBPASTA=' + c.niveisSubpasta + custom + '). ',
+      'Quando você salvar, o mapa passa a valer e essas linhas deixam de ser usadas.')));
+  }
+  if (c.podeSerUnidadeMapeada) {
+    box.append(h('div', { class: 'faixa aviso' }, icone('alerta'), h('div', {},
+      'A pasta inicial usa a unidade ', h('b', {}, c.pastaInicial.slice(0, 2)), '. O robô roda como serviço do Windows e pode não enxergar unidades mapeadas. ',
+      'Rode o ', h('b', {}, 'testar.bat'), ' para conferir e, se ele sugerir, troque pelo caminho de rede (\\\\servidor\\pasta).')));
+  }
+}
+
+/**
+ * Redesenhar troca os campos de texto por outros; quem estava digitando perderia o foco e o
+ * cursor. Todo campo tem um data-foco estavel, e e por ele que o foco volta.
+ */
+function preservandoFoco(desenhar) {
+  const ativo = document.activeElement;
+  const foco = ativo && ativo.dataset ? ativo.dataset.foco : null;
+  const valor = foco ? ativo.value : null;
+  const selecao = foco && typeof ativo.selectionStart === 'number' ? [ativo.selectionStart, ativo.selectionEnd] : null;
+  desenhar();
+  if (!foco || document.activeElement === ativo) return;
+  const el = document.querySelector('[data-foco="' + CSS.escape(foco) + '"]');
+  if (!el) return;
+  el.value = valor;
+  el.focus();
+  if (selecao) { try { el.setSelectionRange(selecao[0], selecao[1]); } catch (e) { /* tipo sem selecao */ } }
+}
+
+function renderCaminhos() {
+  preservandoFoco(() => {
+    const cont = $('#caminhos');
+    cont.textContent = '';
+    $('#conta-caminhos').textContent = S.caminhos.length ? '(' + S.caminhos.length + ')' : '';
+    if (!S.caminhos.length) cont.append(estadoVazio());
+    else for (const c of S.caminhos) cont.append(cartaoDoCaminho(c));
+  });
+}
+
+function estadoVazio() {
+  return h('div', { class: 'vazio' },
+    h('h3', {}, 'Como montar o mapa'),
+    h('p', {}, 'Você aponta uma pasta de exemplo e diz, nível por nível, o que vale para as outras pastas parecidas. Não é preciso escrever nenhuma regra.'),
+    h('ol', { class: 'passos' },
+      h('li', {}, h('div', {}, h('b', {}, 'Ache uma pasta de guias. '), h('span', {}, 'Na árvore à esquerda, abra as pastas até chegar numa pasta onde o cliente coloca as guias — por exemplo, a pasta de um mês de uma empresa.'))),
+      h('li', {}, h('div', {}, h('b', {}, 'Clique em “Usar como pasta das guias”. '), h('span', {}, 'O mapeador mostra o caminho até ela, nível por nível.'))),
+      h('li', {}, h('div', {}, h('b', {}, 'Generalize. '), h('span', {}, 'Nos níveis onde há uma pasta por empresa, escolha “Todas as pastas”; nas pastas de ano ou mês, escolha “Pasta de data”.'))),
+      h('li', {}, h('div', {}, h('b', {}, 'Confira e salve. '), h('span', {}, 'A árvore marca o que o robô vai monitorar. Se as guias ficam em mais de um lugar, repita: cada lugar vira um caminho.')))));
+}
+
+function cartaoDoCaminho(c) {
+  const aberto = c.id === S.selecionado;
+  const situacao = situacaoDoCaminho(c);
+  const card = h('section', { class: 'caminho' + (aberto ? ' aberto' : ''), style: '--cor:' + corDe(c.id), 'data-caminho': String(c.id) });
+  card.append(h('button', { class: 'caminho-cab', 'aria-expanded': String(aberto), onclick: () => selecionarCaminho(c.id) },
+    h('span', { class: 'caminho-cor' }),
+    h('span', { class: 'caminho-titulo' },
+      h('span', { class: 'caminho-nome', 'data-nome-de': String(c.id) }, nomeDe(c)),
+      trilhaDoCaminho(c)),
+    seloDaSituacao(situacao),
+    icone('chevron')));
+  if (aberto) card.append(corpoDoCaminho(c, situacao));
+  return card;
+}
+
+function trilhaDoCaminho(c) {
+  const trilha = h('span', { class: 'trilha' });
+  if (c.linhaBruta !== null) {
+    trilha.append(h('span', { class: 'esp mono' }, c.linhaBruta));
+    return trilha;
+  }
+  c.niveis.forEach((n, i) => {
+    if (i) trilha.append(h('span', { class: 'sep' }, '›'));
+    const r = rotuloCurto(n);
+    trilha.append(h('span', { class: r.especial ? 'esp' + (r.mono ? ' mono' : '') : '' }, r.texto));
+  });
+  return trilha;
+}
+
+function seloDaSituacao(s) {
+  switch (s.tipo) {
+    case 'ok': return h('span', { class: 'selo ok' }, plural(s.n, 'pasta', 'pastas'));
+    case 'zero': return h('span', { class: 'selo zero' }, icone('alerta'), 'nenhuma pasta');
+    case 'erro': return h('span', { class: 'selo erro' }, icone('erro'), 'erro');
+    case 'incompleto': return h('span', { class: 'selo erro' }, 'incompleto');
+    case 'calculando': return h('span', { class: 'selo' }, icone('girar', 'girando'), 'conferindo');
+  }
+  return h('span', { class: 'selo' }, '—');
+}
+
+function corpoDoCaminho(c, situacao) {
+  const corpo = h('div', { class: 'caminho-corpo' });
+  corpo.append(h('label', { class: 'campo' },
+    h('span', {}, 'Nome do caminho (só para você se orientar; vai como comentário no arquivo)'),
+    h('input', {
+      type: 'text', value: c.nome, maxlength: '80', placeholder: 'Ex.: Guias de tributos', 'data-foco': 'nome-' + c.id,
+      oninput: ev => {
+        c.nome = ev.target.value;
+        c.nomeAutomatico = false;
+        const el = document.querySelector('[data-nome-de="' + c.id + '"]');
+        if (el) el.textContent = nomeDe(c);
+        marcarSujo();
+      }
+    })));
+
+  if (c.linhaBruta !== null) {
+    corpo.append(h('div', { class: 'caixa-aviso' }, icone('alerta'), h('div', {},
+      'Esta linha do mapa não pôde ser mostrada nível por nível (ela não começa na pasta inicial, ou tem barra sobrando). ',
+      'Corrija o texto abaixo, ou remova o caminho e monte de novo pela árvore.')));
+    corpo.append(h('input', {
+      type: 'text', class: 'mono', value: c.linhaBruta, 'data-foco': 'bruta-' + c.id,
+      oninput: ev => { c.linhaBruta = ev.target.value; marcarSujo(); agendarPrevia(); },
+      onchange: () => {
+        const novo = caminhoDeLinha(c.linhaBruta, c.nome);
+        if (novo.linhaBruta === null) { c.niveis = novo.niveis; c.linhaBruta = null; }
+        renderCaminhos();
+      }
+    }));
+  } else {
+    const exemplo = exemploDe(c);
+    if (exemplo) {
+      corpo.append(h('div', { class: 'exemplo' }, icone('alvo'),
+        c.exemplo ? 'Pasta de exemplo:' : 'Uma das pastas encontradas:',
+        h('code', {}, caminhoLegivel(exemplo)),
+        h('button', { class: 'link', onclick: () => revelar(exemplo, true) }, 'mostrar na árvore')));
+    }
+    corpo.append(h('p', { class: 'dica' },
+      'Confira cada nível. Onde o cliente tem uma pasta por empresa (ou por filial, por cliente), escolha “Todas as pastas”. Clique num nível para mudar.'));
+    const lista = h('ol', { class: 'niveis' });
+    c.niveis.forEach((n, i) => lista.append(linhaDoNivel(c, n, i)));
+    corpo.append(lista);
+  }
+
+  if (situacao.tipo === 'erro') {
+    corpo.append(h('div', { class: 'caixa-erro' }, icone('erro'), h('div', {}, 'O robô não aceita este caminho: ' + situacao.texto)));
+  } else if (situacao.tipo === 'zero') {
+    corpo.append(h('div', { class: 'caixa-aviso' }, icone('alerta'), h('div', {},
+      'Este caminho não encontrou nenhuma pasta. Abra os níveis e veja em “Pastas que existem neste nível” onde ele para de encontrar.')));
+  }
+
+  corpo.append(h('div', { class: 'caminho-acoes' },
+    h('button', { class: 'btn', onclick: () => duplicarCaminho(c) }, icone('copiar'), 'Duplicar'),
+    h('button', { class: 'btn perigo', onclick: () => removerCaminho(c) }, icone('lixo'), 'Remover caminho')));
+  return corpo;
+}
+
+function linhaDoNivel(c, n, i) {
+  const aberto = S.nivelAberto === i;
+  const ultimo = i === c.niveis.length - 1;
+  const exemplo = exemploDe(c);
+  const nomeNoExemplo = exemplo ? partesDe(exemplo)[i] : null;
+  const problema = problemaDoNivel(n);
+  const enviar = S.cfg.pastaEnviar;
+
+  // O que a regra deste nivel deixa de fora, sem precisar abrir o nivel: e como o analista
+  // percebe uma generalizacao esquecida ("So MATRIZ" deixando a FILIAL 01 sem envio).
+  const chave = chaveDosNomes(c, i);
+  const nomes = chave ? S.nomes.get(chave.id) : null;
+  if (chave && !nomes) buscarNomes(chave);
+  const fora = nomes && !nomes.erro ? nomes.nomes.filter(x => !x.aceita && !x.doRobo).map(x => x.nome) : [];
+
+  const li = h('li', { class: 'nivel' + (aberto ? ' aberto' : '') + (problema ? ' com-problema' : '') });
+  li.append(h('button', {
+      class: 'nivel-cab', 'aria-expanded': String(aberto),
+      onclick: () => { S.nivelAberto = aberto ? null : i; renderCaminhos(); }
+    },
+    h('span', { class: 'nivel-num' }, String(i + 1)),
+    h('span', { class: 'nivel-exemplo' + (nomeNoExemplo ? '' : ' sem'), title: nomeNoExemplo || '' }, nomeNoExemplo || 'nível ' + (i + 1)),
+    icone('setaDir', 'nivel-seta'),
+    h('span', { class: 'nivel-regra' },
+      h('span', { class: 'nivel-regra-linha' },
+        h('span', { class: 'nivel-regra-texto', title: resumoDoNivel(n) }, resumoDoNivel(n)),
+        ultimo ? h('span', {
+          class: 'etiqueta alvo',
+          title: enviar
+            ? 'O robô procura as guias na subpasta ' + enviar + ' desta pasta'
+            : 'O robô procura as guias dentro desta pasta'
+        }, 'pasta das guias') : null,
+        problema ? h('span', { class: 'etiqueta erro' }, problema) : null),
+      fora.length ? h('span', { class: 'nivel-fora', title: 'Ficam de fora: ' + fora.join(', ') }, descreverFora(fora)) : null),
+    icone('chevron', 'nivel-chev')));
+  if (aberto) li.append(painelDoNivel(c, n, i));
+  return li;
+}
+
+function descreverFora(fora) {
+  if (fora.length <= 3) return 'deixa de fora: ' + listaFalada(fora, 'e');
+  return 'deixa de fora ' + fora.length + ' pastas: ' + fora.slice(0, 2).join(', ') + ' e mais ' + (fora.length - 2);
+}
+
+function painelDoNivel(c, n, i) {
+  const grupo = 'modo-' + c.id + '-' + i;
+  const opcao = (modo, titulo, descricao, extra) => {
+    const id = grupo + '-' + modo;
+    return h('div', { class: 'opcao' + (n.modo === modo ? ' marcada' : '') },
+      h('input', { type: 'radio', name: grupo, id, checked: n.modo === modo, onchange: () => mudarModo(c, n, i, modo) }),
+      h('label', { for: id }, h('span', { class: 'opcao-titulo' }, titulo), descricao ? h('span', { class: 'opcao-desc' }, descricao) : null),
+      n.modo === modo && extra ? h('div', { class: 'opcao-extra' }, extra()) : null);
+  };
+
+  return h('div', { class: 'nivel-painel' },
+    h('div', { class: 'pergunta' }, 'Neste nível, em quais pastas o robô deve entrar?'),
+    h('div', { class: 'opcoes', role: 'radiogroup' },
+      opcao('todas', 'Todas as pastas', 'Para quando há uma pasta por empresa, filial ou cliente.'),
+      opcao('nomes', 'Só nas pastas com estes nomes', null, () => editorDeTermos(c, n, i, 'incluir')),
+      opcao('menos', 'Em todas, menos nestas', null, () => editorDeTermos(c, n, i, 'excluir')),
+      opcao('data', 'Pasta de data', 'Ano, mês, ou mês e ano. Na virada do ano o robô avança sozinho.', () => seletorDeData(c, n)),
+      opcao('avancado', 'Regra escrita à mão (avançado)', 'A mesma escrita do mapa-pastas.txt: ECD@ECF, !DMED, =ECD, $ANO…', () => campoAvancado(c, n, i))),
+    painelDeNomes(c, n, i));
+}
+
+function editorDeTermos(c, n, i, qual) {
+  const termos = n[qual];
+  const box = h('div', { class: 'termos' });
+  termos.forEach((t, k) => {
+    box.append(h('span', { class: 'chip' + (qual === 'excluir' ? ' excluir' : '') },
+      h('button', {
+        class: 'chip-texto',
+        title: t.exato
+          ? 'Só a pasta com exatamente este nome. Clique para aceitar qualquer pasta que contenha este texto.'
+          : 'Qualquer pasta que contenha este texto. Clique para exigir o nome exato.',
+        onclick: () => { t.exato = !t.exato; alterouNivel(c); }
+      }, t.exato ? h('b', {}, '= ') : null, t.termo),
+      h('button', {
+        class: 'chip-x', 'aria-label': 'Tirar ' + t.termo,
+        onclick: () => { termos.splice(k, 1); alterouNivel(c); }
+      }, icone('x'))));
+  });
+  box.append(h('input', {
+    type: 'text', class: 'chip-entrada', 'data-foco': 'termo-' + c.id + '-' + i + '-' + qual,
+    placeholder: qual === 'incluir' ? '+ nome da pasta' : '+ pasta a deixar de fora',
+    onkeydown: ev => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      const digitado = ev.target.value;
+      ev.target.value = '';
+      if (adicionarTermos(n, qual, digitado)) alterouNivel(c);
+    },
+    onchange: ev => {
+      const digitado = ev.target.value;
+      if (!digitado.trim()) return;
+      ev.target.value = '';
+      if (adicionarTermos(n, qual, digitado)) alterouNivel(c);
+    }
+  }));
+  box.append(h('div', { class: 'termos-ajuda' },
+    'Vale qualquer pasta que contenha o texto, sem ligar para acentos e maiúsculas. ',
+    'O sinal ', h('b', {}, '='), ' no nome quer dizer “só o nome exato” — clique no nome para trocar. ',
+    'Também dá para clicar nas pastas da lista abaixo.'));
+  return box;
+}
+
+function seletorDeData(c, n) {
+  const select = h('select', { onchange: ev => { n.data = ev.target.value; alterouNivel(c); } },
+    ['ano', 'mes', 'mesAno', 'anoMes'].map(tipo => {
+      const d = descricaoData(tipo);
+      return h('option', { value: tipo, selected: n.data === tipo }, d.titulo + ' — ' + d.exemplo);
+    }));
+  return h('div', {}, select,
+    h('p', { class: 'nota-data' }, 'O robô só olha o ano atual e o anterior (' + S.cfg.anoMinimo + ' e ' + S.cfg.anoMaximo + '). Pastas de anos mais antigos ficam de fora.'));
+}
+
+let relogioDoAvancado = null;
+function campoAvancado(c, n, i) {
+  return h('input', {
+    type: 'text', class: 'mono', value: n.texto, placeholder: 'ex.: ECD@ECF@!ANTIGO', 'data-foco': 'avancado-' + c.id + '-' + i,
+    oninput: ev => {
+      n.texto = ev.target.value;
+      atualizarNomeAutomatico(c);
+      marcarSujo();
+      agendarPrevia(700);
+      clearTimeout(relogioDoAvancado);
+      relogioDoAvancado = setTimeout(renderCaminhos, 500);
+    }
+  });
+}
+
+function painelDeNomes(c, n, i) {
+  const box = h('div', { class: 'nomes' });
+  const chave = chaveDosNomes(c, i);
+  if (!chave) {
+    box.append(h('p', { class: 'dica' }, 'Termine os níveis de cima para ver as pastas deste nível.'));
+    return box;
+  }
+  const dados = S.nomes.get(chave.id);
+  if (!dados) {
+    box.append(h('p', { class: 'dica' }, icone('girar', 'girando'), ' Procurando as pastas deste nível…'));
+    buscarNomes(chave);
+    return box;
+  }
+
+  const filtro = S.filtrosNomes.get(c.id + '-' + i) || '';
+  const onde = i === 0
+    ? 'na pasta inicial'
+    : dados.pastasNoNivelAcima === 1 ? 'em 1 pasta do nível de cima' : 'somando ' + plural(dados.pastasNoNivelAcima, 'pasta', 'pastas') + ' do nível de cima';
+  const cab = h('div', { class: 'nomes-cab' },
+    h('span', { class: 'nomes-titulo' }, 'Pastas que existem neste nível'),
+    h('span', { class: 'nomes-conta' }, plural(dados.totalDeNomes, 'nome', 'nomes') + ', ' + onde));
+  if (dados.nomes.length > 12) {
+    cab.append(h('input', {
+      type: 'search', placeholder: 'filtrar…', value: filtro, 'data-foco': 'filtro-' + c.id + '-' + i,
+      oninput: ev => {
+        S.filtrosNomes.set(c.id + '-' + i, ev.target.value);
+        const alvo = normalizar(ev.target.value);
+        for (const el of box.querySelectorAll('.nome')) el.hidden = alvo !== '' && !el.dataset.filtro.includes(alvo);
+      }
+    }));
+  }
+  box.append(cab);
+  if (dados.erro) box.append(h('div', { class: 'caixa-erro' }, icone('erro'), h('div', {}, dados.erro)));
+
+  if (!dados.nomes.length) {
+    box.append(h('p', { class: 'dica' }, dados.pastasNoNivelAcima
+      ? 'Nenhuma pasta neste nível: as pastas do nível de cima estão vazias.'
+      : 'Nenhuma pasta chega até aqui: as regras dos níveis de cima não encontram nada.'));
+    return box;
+  }
+
+  const alvoFiltro = normalizar(filtro);
+  const lista = h('div', { class: 'nomes-lista' });
+  for (const item of dados.nomes) {
+    const classe = item.doRobo ? 'do-robo' : item.aceita ? 'entra' : 'fora';
+    const titulo = item.doRobo
+      ? 'Pasta de trabalho do robô'
+      : (item.aceita ? 'O robô entra' : 'O robô não entra') + (item.quantidade > 1 ? ' (existe em ' + item.quantidade + ' pastas)' : '');
+    lista.append(h('button', {
+        class: 'nome ' + classe, title: titulo, 'data-filtro': normalizar(item.nome),
+        hidden: alvoFiltro !== '' && !normalizar(item.nome).includes(alvoFiltro),
+        onclick: () => clicarNome(c, n, i, item, dados)
+      },
+      icone(item.aceita ? 'check' : 'menos'),
+      h('span', {}, item.nome),
+      item.quantidade > 1 ? h('span', { class: 'nome-qtd' }, '×' + item.quantidade) : null));
+  }
+  box.append(lista);
+  const rodape = [];
+  if (dados.totalDeNomes > dados.nomes.length) rodape.push('Mostrando os primeiros ' + dados.nomes.length + ' nomes.');
+  rodape.push(n.modo === 'todas'
+    ? 'Clique num nome para deixá-lo de fora.'
+    : n.modo === 'nomes' || n.modo === 'menos'
+      ? 'Clique num nome para colocá-lo ou tirá-lo.'
+      : 'Verde: o robô entra. Riscado: fica de fora.');
+  box.append(h('div', { class: 'nomes-rodape' }, rodape.join(' ')));
+  return box;
+}
+
+// ------------------------------------------------------------------------------- resultado
+
+function resumoDoResultado() {
+  const p = S.previa;
+  if (!S.caminhos.length) return { tipo: 'neutro', icone: 'info', titulo: 'Nenhum caminho ainda', sub: 'Escolha uma pasta de guias na árvore para começar.' };
+  if (S.previaStatus === 'calculando') return { tipo: 'neutro', icone: 'girar', girando: true, titulo: 'Conferindo as pastas do cliente…', sub: 'Numa pasta de rede grande isso pode levar alguns segundos.' };
+  if (S.previaStatus === 'falhou') return { tipo: 'erro', icone: 'erro', titulo: 'Não foi possível conferir', sub: S.previaFalha || '' };
+  if (S.previaStatus === 'vazia' || !p) return { tipo: 'aviso', icone: 'alerta', titulo: 'Nada para conferir', sub: 'Todos os caminhos estão incompletos ou com erro.' };
+  if (p.totalDeAlvos === 0) return { tipo: 'aviso', icone: 'alerta', titulo: 'Nenhuma pasta encontrada', sub: 'Com este mapa o robô não enviaria nada. Confira os níveis dos caminhos.' };
+  return {
+    tipo: 'ok', icone: 'check',
+    titulo: 'O robô vai monitorar ' + plural(p.totalDeAlvos, 'pasta', 'pastas'),
+    sub: plural(p.pastasVisitadas, 'pasta conferida', 'pastas conferidas') + ' na árvore do cliente'
+  };
+}
+
+function avisosDoResultado() {
+  const avisos = [];
+  for (const c of S.caminhos) {
+    const s = situacaoDoCaminho(c);
+    if (s.tipo === 'incompleto') avisos.push({ tipo: 'erro', texto: 'O caminho ' + aspas(nomeDe(c)) + ' está incompleto (' + s.texto + ') e ficou de fora.', caminho: c.id });
+    if (s.tipo === 'erro') avisos.push({ tipo: 'erro', texto: 'O robô não aceita o caminho ' + aspas(nomeDe(c)) + ': ' + s.texto, caminho: c.id });
+    if (s.tipo === 'zero') avisos.push({ tipo: 'aviso', texto: 'O caminho ' + aspas(nomeDe(c)) + ' não encontrou nenhuma pasta.', caminho: c.id });
+  }
+  const p = S.previaStatus === 'pronta' ? S.previa : null;
+  if (p && p.semAcesso.length) {
+    avisos.push({
+      tipo: 'aviso', chave: 'sem-acesso',
+      texto: 'Sem permissão para abrir ' + plural(p.semAcesso.length, 'pasta', 'pastas') + '.',
+      detalhe: 'O usuário ' + S.cfg.usuario + ' não consegue abrir estas pastas, então o que há dentro delas ficou de fora. O serviço do robô pode ter outras permissões.',
+      itens: p.semAcesso.map(rel => ({ rel, texto: caminhoLegivel(rel) }))
+    });
+  }
+  if (p && p.ramosSemAlvo.length) {
+    avisos.push({
+      tipo: 'info', chave: 'ramos',
+      texto: 'Em ' + plural(p.ramosSemAlvo.length, 'pasta', 'pastas') + ' o caminho não chega até o fim.',
+      detalhe: 'Pode ser normal (uma empresa que ainda não tem a pasta deste ano, por exemplo). Mas se forem muitas, talvez falte ou sobre um nível no caminho.',
+      itens: p.ramosSemAlvo.map(r => ({
+        rel: r.caminho,
+        texto: caminhoLegivel(r.caminho),
+        extra: 'não tem dentro: ' + listaFalada(r.esperado.map(s => minusculaInicial(resumoDoNivel(nivelDeSegmento(s)))), 'ou')
+      }))
+    });
+  }
+  if (p && p.alvosAninhados.length) {
+    avisos.push({
+      tipo: 'info', chave: 'aninhados',
+      texto: plural(p.alvosAninhados.length, 'pasta monitorada fica', 'pastas monitoradas ficam') + ' dentro de outra pasta monitorada.',
+      detalhe: 'Funciona, mas o cliente vai ver duas pastas ENVIADOS na mesma parte da árvore.',
+      itens: p.alvosAninhados.map(a => ({ rel: a.caminho, texto: caminhoLegivel(a.caminho), extra: 'dentro de ' + caminhoLegivel(a.dentroDe) }))
+    });
+  }
+  return avisos;
+}
+
+function detalhes(chave, resumo, conteudo) {
+  return h('details', {
+      open: S.detalhesAbertos.has(chave),
+      ontoggle: ev => { if (ev.target.open) S.detalhesAbertos.add(chave); else S.detalhesAbertos.delete(chave); }
+    },
+    h('summary', {}, resumo), conteudo);
+}
+
+function listaDePastas(itens) {
+  return h('ul', { class: 'lista-pastas' }, itens.slice(0, LIMITE_LISTA).map(item =>
+    h('li', { class: 'clicavel', style: item.cor ? '--cor:' + item.cor : null, title: 'Mostrar na árvore', onclick: () => revelar(item.rel, true) },
+      item.cor ? h('span', { class: 'bolinha' }) : null,
+      h('span', {}, h('span', { class: 'caminho-txt' }, item.texto), item.extra ? h('span', { class: 'detalhe' }, ' — ' + item.extra) : null))));
+}
+
+function renderResultado() {
+  preservandoFoco(desenharResultado);
+}
+
+function desenharResultado() {
+  const box = $('#resultado');
+  box.textContent = '';
+  box.hidden = !S.caminhos.length;
+  if (box.hidden) return;
+
+  const r = resumoDoResultado();
+  box.append(h('div', { class: 'resultado-topo' },
+    h('div', { class: 'resultado-icone ' + r.tipo }, icone(r.icone, r.girando ? 'girando' : null)),
+    h('div', {}, h('p', { class: 'resultado-titulo' }, r.titulo), h('p', { class: 'resultado-sub' }, r.sub))));
+
+  const corpo = h('div', { class: 'resultado-corpo' });
+  const avisos = avisosDoResultado();
+  if (avisos.length) {
+    corpo.append(h('ul', { class: 'avisos' }, avisos.map(a => h('li', {},
+      h('div', { class: 'aviso-linha ' + a.tipo }, icone(a.tipo === 'erro' ? 'erro' : a.tipo === 'aviso' ? 'alerta' : 'info'),
+        h('div', { class: 'aviso-texto' },
+          a.caminho
+            ? h('button', { class: 'link', onclick: () => { S.selecionado = a.caminho; S.nivelAberto = null; renderCaminhos(); renderArvore(); } }, a.texto)
+            : a.texto,
+          a.detalhe ? h('small', {}, a.detalhe) : null,
+          a.itens ? detalhes('aviso-' + a.chave, 'ver ' + plural(a.itens.length, 'pasta', 'pastas'), listaDePastas(a.itens)) : null))))));
+  }
+
+  const p = S.previaStatus === 'pronta' ? S.previa : null;
+  if (p && p.totalDeAlvos) {
+    const alvoFiltro = normalizar(S.filtroAlvos);
+    const itens = p.alvos
+      .filter(a => !alvoFiltro || normalizar(a.caminho).includes(alvoFiltro))
+      .map(a => {
+        const id = (S.alvos.get(a.caminho) || [])[0];
+        return { rel: a.caminho, texto: caminhoLegivel(a.caminho), cor: id !== undefined ? corDe(id) : null };
+      });
+    const conteudo = h('div', {},
+      h('input', {
+        type: 'search', class: 'filtro-lista', placeholder: 'filtrar pastas…', value: S.filtroAlvos, 'data-foco': 'filtro-alvos',
+        oninput: ev => { S.filtroAlvos = ev.target.value; renderResultado(); }
+      }),
+      listaDePastas(itens),
+      itens.length > LIMITE_LISTA || p.alvos.length < p.totalDeAlvos
+        ? h('p', { class: 'dica', style: 'margin-top:6px' }, 'Mostrando ' + Math.min(itens.length, LIMITE_LISTA) + ' de ' + plural(p.totalDeAlvos, 'pasta', 'pastas') + '. Use o filtro para achar uma pasta específica.')
+        : null);
+    corpo.append(detalhes('alvos', 'Ver as ' + plural(p.totalDeAlvos, 'pasta monitorada', 'pastas monitoradas'), conteudo));
+  }
+  if (corpo.childNodes.length) box.append(corpo);
+}
+
+function renderRodape() {
+  const r = resumoDoResultado();
+  const resumo = $('#resumo');
+  resumo.textContent = '';
+  const avisos = avisosDoResultado().filter(a => a.tipo !== 'info').length;
+  resumo.append(
+    h('span', { class: 'resultado-icone ' + r.tipo }, icone(r.icone, r.girando ? 'girando' : null)),
+    h('span', { class: 'resumo-texto' }, r.titulo));
+  if (avisos) resumo.append(h('span', { class: 'resumo-avisos' }, plural(avisos, 'aviso', 'avisos')));
+
+  const salvo = $('#estado-salvo');
+  if (S.sujo) {
+    salvo.className = 'salvo sujo';
+    salvo.textContent = 'Alterações não salvas';
+  } else if (S.salvouNestaSessao) {
+    salvo.className = 'salvo limpo';
+    salvo.textContent = 'Mapa salvo';
+  } else {
+    salvo.className = 'salvo';
+    salvo.textContent = S.cfg && S.cfg.modoAtual === 'MAPA' ? 'Igual ao mapa salvo' : 'Ainda sem mapa';
+  }
+  $('#btn-salvar').disabled = !S.caminhos.length;
+}
+
+// =====================================================================================  acoes
+
+function dialogo(opcoes) {
+  return new Promise(resolve => {
+    const d = h('dialog', { class: 'dialogo' });
+    const fechar = valor => { d.close(); d.remove(); resolve(valor); };
+    d.append(
+      h('h2', {}, opcoes.titulo),
+      h('div', { class: 'dialogo-corpo' }, opcoes.conteudo),
+      h('div', { class: 'dialogo-botoes' }, opcoes.botoes.map(b =>
+        h('button', { class: 'btn ' + (b.classe || ''), onclick: () => fechar(b.valor) }, b.texto))));
+    d.addEventListener('cancel', ev => { ev.preventDefault(); fechar(null); });
+    document.body.append(d);
+    d.showModal();
+    const primario = d.querySelector('.btn.primario');
+    if (primario) primario.focus();
+  });
+}
+
+function aviso(texto, tipo) {
+  const t = h('div', { class: 'toast' + (tipo ? ' ' + tipo : ''), role: 'status' }, texto);
+  $('#toasts').append(t);
+  setTimeout(() => t.classList.add('saindo'), 5200);
+  setTimeout(() => t.remove(), 5600);
+}
+
+async function copiar(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+  } catch (e) {
+    const area = h('textarea', { style: 'position:fixed;opacity:0' });
+    area.value = texto;
+    document.body.append(area);
+    area.select();
+    document.execCommand('copy');
+    area.remove();
+  }
+  aviso('Texto copiado.', 'ok');
+}
+
+function verArquivo() {
+  const gerado = gerarTexto();
+  dialogo({
+    titulo: 'Arquivo que será gravado',
+    conteudo: [
+      h('p', {}, 'Ao salvar, este texto vai para ', h('code', {}, 'mapa-pastas.txt'), ', na pasta do robô.'),
+      gerado.incompletos.length
+        ? h('p', { class: 'nota aviso' }, icone('alerta'), 'Ficam de fora, por estarem incompletos: ' + gerado.incompletos.map(c => aspas(nomeDe(c))).join(', ') + '.')
+        : null,
+      h('pre', { class: 'arquivo' }, gerado.texto)
+    ],
+    botoes: [{ texto: 'Copiar texto', valor: 'copiar' }, { texto: 'Fechar', classe: 'primario', valor: null }]
+  }).then(v => { if (v === 'copiar') copiar(gerado.texto); });
+}
+
+async function salvar() {
+  if (!S.caminhos.length) return;
+  const gerado = gerarTexto();
+  if (gerado.incompletos.length) {
+    const c = gerado.incompletos[0];
+    S.selecionado = c.id;
+    S.nivelAberto = null;
+    renderCaminhos();
+    aviso('Termine o caminho ' + aspas(nomeDe(c)) + ' antes de salvar: ' + problemaDoCaminho(c) + '.', 'erro');
+    return;
+  }
+
+  clearTimeout(relogioDaPrevia);
+  S.previaStatus = 'calculando';
+  renderDependentesDaPrevia();
+  await rodarPrevia();
+  if (S.errosPorCaminho.size) {
+    const [id, erro] = S.errosPorCaminho.entries().next().value;
+    S.selecionado = id;
+    renderCaminhos();
+    aviso('O robô não aceita o caminho ' + aspas(nomeDe(caminhoPorId(id))) + ': ' + erro, 'erro');
+    return;
+  }
+  if (S.previaStatus !== 'pronta') {
+    aviso('Não foi possível conferir o mapa antes de salvar: ' + (S.previaFalha || 'tente de novo.'), 'erro');
+    return;
+  }
+
+  const total = S.previa.totalDeAlvos;
+  const conteudo = [];
+  if (total === 0) {
+    conteudo.push(h('div', { class: 'caixa-erro' }, icone('alerta'), h('div', {},
+      h('b', {}, 'Este mapa não encontra nenhuma pasta. '), 'Com ele o robô não enviaria nada. Salve só se tiver certeza.')));
+  } else {
+    conteudo.push(h('p', {}, 'O robô vai passar a monitorar ', h('b', {}, plural(total, 'pasta', 'pastas')), ', em ' + plural(S.caminhos.length, 'caminho', 'caminhos') + '.'));
+  }
+  if (S.cfg.modoAtual === 'NIVEIS') {
+    conteudo.push(h('p', {}, 'Hoje o robô usa NIVEIS_SUBPASTA do parametros.txt. Depois de salvar, ele passa a usar só este mapa.'));
+  }
+  conteudo.push(h('p', {}, 'O robô começa a usar o novo mapa sozinho, em menos de um minuto — não precisa reiniciar nada. O mapa anterior fica guardado.'));
+  const ok = await dialogo({
+    titulo: 'Salvar o mapa?',
+    conteudo,
+    botoes: [{ texto: 'Cancelar', valor: false }, { texto: total === 0 ? 'Salvar mesmo assim' : 'Salvar', classe: total === 0 ? 'perigo' : 'primario', valor: true }]
+  });
+  if (!ok) return;
+
+  let r;
+  try {
+    r = await chamar('POST', '/api/salvar', { texto: gerarTexto().texto });
+  } catch (e) {
+    aviso('Não foi possível salvar: ' + e.message, 'erro');
+    return;
+  }
+  if (!r.salvo) {
+    dialogo({ titulo: 'O mapa não foi salvo', conteudo: [h('p', {}, r.erro)], botoes: [{ texto: 'Fechar', classe: 'primario', valor: null }] });
+    return;
+  }
+  S.sujo = false;
+  S.salvouNestaSessao = true;
+  try { S.cfg = await chamar('GET', '/api/estado'); } catch (e) { /* segue com o estado anterior */ }
+  renderFaixas();
+  renderTudo();
+  aviso('Mapa salvo.' + (r.copiaAnterior ? ' A versão anterior ficou em ' + r.copiaAnterior + '.' : ''), 'ok');
+}
+
+async function atualizarPastas() {
+  try {
+    await chamar('POST', '/api/atualizar-pastas');
+  } catch (e) {
+    return;
+  }
+  S.arvore.clear();
+  S.nomes.clear();
+  for (const rel of S.abertas) carregarPasta(rel);
+  renderTudo();
+  agendarPrevia(0);
+  aviso('Pastas lidas de novo.');
+}
+
+async function encerrar() {
+  if (S.sujo) {
+    const ok = await dialogo({
+      titulo: 'Encerrar sem salvar?',
+      conteudo: [h('p', {}, 'Há alterações que ainda não foram salvas no mapa-pastas.txt. Se encerrar agora, elas se perdem.')],
+      botoes: [{ texto: 'Continuar editando', classe: 'primario', valor: false }, { texto: 'Encerrar sem salvar', classe: 'perigo', valor: true }]
+    });
+    if (!ok) return;
+  }
+  S.sujo = false;
+  try { await chamar('POST', '/api/encerrar'); } catch (e) { /* ja estava fora */ }
+  telaCheia('Mapeador encerrado', [h('p', {}, 'Pode fechar esta aba.'), h('p', {}, 'Para abrir de novo, rode o mapear.bat na pasta do robô.')]);
+}
+
+function telaCheia(titulo, conteudo) {
+  if (document.getElementById('tela-cheia')) return;
+  document.body.append(h('div', { class: 'tela-cheia', id: 'tela-cheia' }, h('div', { class: 'tela-caixa' }, h('h2', {}, titulo), conteudo)));
+}
+
+function mostrarDesconectado() {
+  const conteudo = [h('p', {}, 'A janela preta do mapear.bat foi fechada, ou o mapeador encerrou sozinho depois de muito tempo parado. Para continuar, rode o mapear.bat de novo.')];
+  if (S.sujo) {
+    const texto = gerarTexto().texto;
+    conteudo.push(h('p', {}, h('b', {}, 'As alterações não salvas ainda estão aqui. '), 'Copie o texto abaixo antes de fechar a aba — dá para colar no mapa-pastas.txt.'));
+    const area = h('textarea', { readonly: true });
+    area.value = texto;
+    conteudo.push(area, h('p', {}, h('button', { class: 'btn', onclick: () => copiar(texto) }, icone('copiar'), 'Copiar texto')));
+  }
+  S.sujo = false;
+  telaCheia('O mapeador não está mais respondendo', conteudo);
+}
+
+function mostrarSemToken() {
+  telaCheia('Endereço incompleto', [
+    h('p', {}, 'Abra o endereço completo que aparece na janela preta do mapear.bat — ele termina com um código depois do #.')]);
+}
+
+// =====================================================================================  inicio
+
+async function iniciar() {
+  document.getElementById('sem-js').remove();
+  if (!TOKEN) { mostrarSemToken(); return; }
+  try {
+    S.cfg = await chamar('GET', '/api/estado');
+  } catch (e) {
+    return;
+  }
+  renderTopo();
+  renderFaixas();
+  if (S.cfg.textoMapa) S.caminhos = importar(S.cfg.textoMapa);
+  carregarPasta('');
+  renderTudo();
+  if (S.caminhos.length) agendarPrevia(0);
+
+  $('#btn-salvar').addEventListener('click', salvar);
+  $('#btn-arquivo').addEventListener('click', verArquivo);
+  $('#btn-atualizar').addEventListener('click', atualizarPastas);
+  $('#btn-encerrar').addEventListener('click', encerrar);
+  $('#resumo').addEventListener('click', () => $('#resultado').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  window.addEventListener('beforeunload', ev => { if (S.sujo) { ev.preventDefault(); ev.returnValue = ''; } });
+  setInterval(() => { chamar('POST', '/api/ping').catch(() => {}); }, 60000);
+}
+
+iniciar();
+</script>
+</body>
+</html>

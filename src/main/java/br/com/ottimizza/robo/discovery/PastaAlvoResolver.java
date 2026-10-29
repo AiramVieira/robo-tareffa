@@ -184,7 +184,7 @@ public final class PastaAlvoResolver {
      * Nomes que curingas e tokens do mapa nunca alcancam: as pastas de trabalho do proprio robo.
      * Sem isso a lista de pastas-alvo se realimenta a cada remapeamento.
      */
-    static Set<String> nomesReservados(Parametros parametros) {
+    public static Set<String> nomesReservados(Parametros parametros) {
         Set<String> reservados = new HashSet<>();
         reservados.add(CustomizacaoRule.normalizar(CaminhosPasta.NOME_ENVIADOS));
         reservados.add(CustomizacaoRule.normalizar(CaminhosPasta.NOME_ERROS));

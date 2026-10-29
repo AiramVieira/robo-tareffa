@@ -212,6 +212,8 @@ Esse caso é comum, e historicamente era resolvido **escrevendo código na máqu
 
 A observação que resolve o problema: quem escrevia aquele bloco **primeiro documentava a árvore do cliente em comentário**, numa notação declarativa (um caminho por linha, com curingas para "todas as pastas" e marcadores para ano e mês.ano) e depois traduzia isso à mão para condicionais. O mapa de pastas elimina a tradução: **a lista de caminhos passa a ser executada diretamente.**
 
+Na prática o mapa é montado pelo mapeador (seção 6.8), que gera esta escrita a partir de cliques na árvore real; o formato abaixo continua valendo para quem edita o arquivo à mão.
+
 #### Formato
 
 Um arquivo `mapa-pastas.txt` na pasta de instalação (ao lado de `robo.jar` e `parametros.txt`), com **uma linha por caminho**. Os caminhos partem da `PASTA_INICIAL` (nível 0); o segmento *i* casa com o nome da pasta no nível *i*. A **última** pasta de cada linha é a pasta-alvo daquele caminho.
@@ -357,6 +359,74 @@ A seção de ramos sem pasta-alvo é o diagnóstico que faltava: são pastas que
 
 Códigos de saída: `0` tudo certo · `2` configuração inválida · `3` configuração válida mas **nenhuma** pasta-alvo · `1` erro inesperado · `64` uso incorreto. `--verbose` mostra também cada pasta visitada e remove o limite de linhas de descarte.
 
+### 6.8 Mapeador de pastas (`mapear.bat`)
+
+Uma tela no navegador para montar o `mapa-pastas.txt` **sem escrever a sintaxe da seção 6.6**. Roda no computador do cliente (o analista acessa por acesso remoto): duplo clique em `mapear.bat`, que executa `robo.jar --mapear` e abre a tela.
+
+#### Motivação
+
+O mapa é só uma lista de caminhos, mas escrevê-lo pede pensar em segmentos, curingas e tokens, e tem armadilhas que só a documentação ensina — a mais grave é a das duas exclusões em linhas separadas (seção 6.6), que *amplia* a seleção em vez de restringir. Para quem não é técnico, o resultado era não conseguir escrever o mapa, ou escrevê-lo errado e só descobrir pelo `testar.bat`, num vaivém de tentativas.
+
+O mapeador troca "descrever a árvore" por "apontar um exemplo nela": o analista navega na árvore real até **uma** pasta onde o cliente deposita guias e diz, nível por nível e em português, o que vale para as pastas parecidas.
+
+#### Como funciona
+
+1. A tela mostra a árvore a partir da `PASTA_INICIAL`, como o Explorer.
+2. O analista escolhe uma pasta de guias e clica em **Usar como pasta das guias**. Cada nível do caminho até ela vira uma linha, já com uma regra sugerida: nome de ano, mês, mês/ano ou ano/mês vira **Pasta de data**; nível com 8 ou mais pastas irmãs vira **Todas as pastas** (tipicamente uma pasta por empresa); os demais ficam **Só nas pastas com este nome**.
+3. Cada nível pode ser trocado entre as opções da tabela abaixo. Cada linha mostra o que a regra **deixa de fora** naquele nível ("deixa de fora: FILIAL 01") — é assim que uma generalização esquecida aparece sem precisar abrir o nível. O painel do nível lista os nomes de pasta que existem ali, somando todos os ramos aceitos nos níveis de cima, marcando quais entram; clicar num nome o inclui ou exclui.
+4. A prévia diz quantas pastas o robô vai monitorar, marca-as na árvore e avisa: caminho que não encontra nada, ramos que param no meio (os "ramos sem pasta-alvo" da seção 6.7), pastas sem permissão, pasta-alvo dentro de outra.
+5. **Salvar mapa** grava o `mapa-pastas.txt`.
+
+Se o lugar das guias muda por departamento ou por profundidade, o analista repete o processo: cada exemplo vira um **caminho**, que é uma linha do mapa.
+
+| Opção na tela | Escrita no mapa |
+|---|---|
+| Todas as pastas | `*` |
+| Só nas pastas com estes nomes | `A@B` (`=A` quando marcado como nome exato) |
+| Em todas, menos nestas | `!A@!B`, sempre no **mesmo** segmento |
+| Pasta de data | `$ANO`, `$MES`, `$MES.ANO` ou `$ANO.MES` |
+| Regra escrita à mão (avançado) | o texto digitado, como no arquivo |
+
+Um nome escolhido numa lista sai como nome exato (`=`) quando, casando por pedaço, ele também pegaria outra pasta da mesma lista (`DMED` pegaria `DMED ANTIGO`). As exclusões de um nível ficam sempre num único segmento, então a armadilha da seção 6.6 não tem como ser montada pela tela.
+
+#### O motor é o do robô
+
+A tela só **monta o texto** do mapa. A prévia, a lista de nomes de cada nível e a validação do salvamento rodam no servidor, com o mesmo `MapaPastasLoader`/`MapaScanner` do robô — nenhuma regra de casamento é reimplementada no navegador. É a mesma razão de existir do modo de teste: o que a tela mostra tem que ser exatamente o que o robô vai fazer. Um mapa salvo pela tela e conferido com o `testar.bat` dá a mesma lista de pastas-alvo.
+
+Durante a sessão as listagens de pasta ficam memorizadas, para cada ajuste não refazer a varredura inteira num compartilhamento de rede; **Atualizar pastas** esquece essa memória, para a tela enxergar pastas criadas enquanto ela estava aberta. Uma prévia em andamento é abandonada quando a tela pede outra mais nova.
+
+#### Abrir um mapa existente
+
+Ao abrir, a tela carrega o `mapa-pastas.txt` atual: cada linha vira um caminho, e o comentário imediatamente acima dela (sem linha em branco no meio) vira o nome do caminho. Segmentos que não cabem nas opções da tela (ex.: `ECD@!ANTIGO`) aparecem como regra avançada; uma linha que nem se divide em níveis (raiz absoluta diferente da `PASTA_INICIAL`) aparece como texto para corrigir. Uma linha recusada pelo parser marca só o próprio caminho com erro — a prévia dos outros continua.
+
+Um mapa salvo em ANSI pelo Bloco de Notas, que o robô não consegue ler, é mostrado mesmo assim, com o aviso; salvar pela tela regrava em UTF-8.
+
+#### Salvar
+
+- Só grava se o texto passar no parser do robô. Um mapa que não encontra nenhuma pasta pode ser salvo, mas com confirmação explícita.
+- A versão anterior vai para `mapa-pastas-anteriores/mapa-pastas_<data>_<hora>.txt`, ao lado do `robo.jar`.
+- A troca é atômica (arquivo temporário + renomeação): o serviço pode estar lendo o mapa no mesmo instante.
+- Não é preciso reiniciar nada: o texto novo muda a impressão digital (seção 6.2) e o robô remapeia no ciclo seguinte.
+- O arquivo continua editável à mão. Os comentários de cabeçalho e de nome de caminho são regerados a cada salvamento; outros comentários se perdem (a versão anterior fica guardada).
+- Se ainda não existia mapa, salvar troca o modo do robô (seção 6.6, Precedência) — a tela avisa antes.
+
+#### Segurança
+
+O mapeador sobe o servidor HTTP do próprio JDK (`jdk.httpserver`, incluído no runtime do pacote), que:
+
+- escuta só em `127.0.0.1`, numa porta aleatória;
+- exige em toda chamada à API o token gerado naquela execução, que vai no endereço aberto no navegador, depois do `#`. Sem isso, qualquer site aberto no navegador do cliente poderia chamar `localhost` e listar as pastas ou gravar o mapa;
+- confere o cabeçalho `Host` (contra DNS rebinding) e recusa caminhos que saiam da `PASTA_INICIAL`.
+
+**Invariante, como no modo de teste: nada é escrito na árvore do cliente** — nem cache, nem pasta. A única escrita é o `mapa-pastas.txt` (e a cópia do anterior) na pasta de instalação, e só quando o analista salva.
+
+#### Execução
+
+- Roda como o usuário logado, sem administrador, pela mesma razão do `testar.bat`. A tela avisa quando a `PASTA_INICIAL` usa letra de unidade, e quando há pastas que esse usuário não consegue abrir.
+- A janela do `mapear.bat` precisa ficar aberta; fechá-la encerra o mapeador. Ele também encerra pelo botão **Encerrar**, e sozinho depois de 30 minutos sem nenhum acesso (a tela aberta dá sinal de vida a cada minuto). Se a tela perde o servidor com alterações não salvas, ela mostra o texto do mapa para copiar.
+- `mapear.bat --sem-navegador` só imprime o endereço — para quando o navegador padrão é um que não abre a tela (Internet Explorer em servidor antigo). A tela funciona no Edge e no Chrome.
+- Códigos de saída: `0` encerrado normalmente · `2` `parametros.txt` inválido ou `PASTA_INICIAL` não encontrada · `1` erro inesperado.
+
 ---
 
 ## 7. Processamento de Cada Arquivo Encontrado
@@ -500,6 +570,13 @@ Consequência direta desse desenho: o marcador `" ARQUIVO ROBO"` existe apenas d
 - [ ] Lista os ramos aceitos que não chegaram a nenhuma pasta-alvo.
 - [ ] Códigos de saída: `0` ok, `2` configuração inválida, `3` zero pastas-alvo, `1` erro inesperado, `64` uso incorreto.
 - [ ] Um argumento desconhecido imprime o uso e sai com `64`, sem iniciar o laço do serviço.
+
+**Mapeador de pastas (seção 6.8)**
+- [ ] A prévia, os nomes de cada nível e a validação ao salvar usam o mesmo parser e a mesma varredura do robô; a tela não reimplementa o casamento de pastas.
+- [ ] Nada é escrito na árvore do cliente; só o `mapa-pastas.txt` e a cópia do anterior, na pasta de instalação, e só ao salvar.
+- [ ] Salvar recusa texto inválido sem tocar no arquivo atual, grava de forma atômica e guarda a versão anterior em `mapa-pastas-anteriores/`.
+- [ ] Exclusões de um mesmo nível saem sempre num único segmento.
+- [ ] A API só responde em `127.0.0.1`, com o token da execução e `Host` local; caminho fora da `PASTA_INICIAL` é recusado.
 
 **Seleção, reserva e envio de arquivos**
 - [ ] Pasta de leitura (`PASTA_ENVIAR` ou a própria pasta-alvo) é criada automaticamente se não existir.

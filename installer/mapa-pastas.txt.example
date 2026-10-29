@@ -6,6 +6,10 @@
 #  NIVEIS_SUBPASTA + CUSTOMIZACAO: por exemplo quando departamentos diferentes tem
 #  profundidades diferentes, ou quando ha pastas de mes/ano no meio do caminho.
 #
+#  PREFIRA O MAPEADOR: de duplo clique em mapear.bat. Ele abre no navegador as pastas do
+#  cliente, monta este arquivo a partir de uma pasta de exemplo e mostra quais pastas o robo
+#  vai monitorar antes de salvar. O que segue e para quem precisa escrever o arquivo a mao.
+#
 #  COMO USAR
 #    1. Copie este arquivo para mapa-pastas.txt (na mesma pasta do robo.jar).
 #    2. Escreva UMA LINHA POR CAMINHO, do jeito que o caminho aparece no Explorer.

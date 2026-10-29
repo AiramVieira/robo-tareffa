@@ -25,6 +25,10 @@ WinSW-x64.exe
 logs/
 .robo_pastas_alvo.cache.json
 
+# Versoes anteriores do mapa, guardadas pelo mapeador (mapear.bat) a cada salvamento - mesma
+# razao do mapa-pastas.txt acima: e a estrutura de pastas real de um cliente.
+mapa-pastas-anteriores/
+
 # Gerado pelo install.ps1 (contem caminhos absolutos da maquina e, em instalacao de rede,
 # a senha da conta de servico) - so o winsw.xml.template e versionado
 winsw.xml

@@ -277,7 +277,7 @@ public final class TestarPastas {
         return false;
     }
 
-    private static String explicarParametrosInvalidos(Path arquivoParametros) {
+    public static String explicarParametrosInvalidos(Path arquivoParametros) {
         Map<String, String> chaves = ArquivoChaveValor.ler(arquivoParametros);
         if (chaves.isEmpty()) {
             return "o arquivo nao existe, esta vazio ou nao pode ser lido.";

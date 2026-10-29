@@ -7,6 +7,7 @@ import br.com.ottimizza.robo.config.ParametrosLoader;
 import br.com.ottimizza.robo.diagnostico.TestarPastas;
 import br.com.ottimizza.robo.discovery.PastaAlvoResolver;
 import br.com.ottimizza.robo.logging.ErroLogger;
+import br.com.ottimizza.robo.mapeador.Mapeador;
 import br.com.ottimizza.robo.processamento.CicloProcessamento;
 import br.com.ottimizza.robo.upload.TareffaStorageClient;
 
@@ -34,6 +35,10 @@ public final class RoboService {
         if (args.length > 0) {
             if (contem(args, "--testar-pastas")) {
                 System.exit(TestarPastas.executar(pastaInstalacao, System.out, contem(args, "--verbose")));
+                return;
+            }
+            if (contem(args, "--mapear")) {
+                System.exit(Mapeador.executar(pastaInstalacao, System.out, !contem(args, "--sem-navegador")));
                 return;
             }
             imprimirUso(System.err);
@@ -118,6 +123,8 @@ public final class RoboService {
         saida.println("  robo.jar                              inicia o robo (modo servico)");
         saida.println("  robo.jar --testar-pastas [--verbose]  mostra as pastas que seriam monitoradas,");
         saida.println("                                        sem mover, renomear nem enviar nada");
+        saida.println("  robo.jar --mapear [--sem-navegador]   abre no navegador a tela para montar o");
+        saida.println("                                        mapa-pastas.txt clicando nas pastas");
     }
 
     private static Path descobrirPastaInstalacao() throws URISyntaxException {

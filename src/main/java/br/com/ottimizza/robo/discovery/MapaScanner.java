@@ -26,16 +26,20 @@ import java.util.stream.Collectors;
  */
 public final class MapaScanner {
 
-    private final BiConsumer<String, Exception> avisoLog;
     private final ObservadorVarredura observador;
+    private final ListadorSubpastas listador;
 
     public MapaScanner() {
         this((mensagem, causa) -> { }, ObservadorVarredura.NENHUM);
     }
 
     public MapaScanner(BiConsumer<String, Exception> avisoLog, ObservadorVarredura observador) {
-        this.avisoLog = avisoLog;
+        this(observador, ListadorSubpastas.doDisco(avisoLog));
+    }
+
+    public MapaScanner(ObservadorVarredura observador, ListadorSubpastas listador) {
         this.observador = observador;
+        this.listador = listador;
     }
 
     /**
@@ -53,7 +57,7 @@ public final class MapaScanner {
 
     private void escanearRecursivo(Path pastaAtual, int nivelAtual, List<TemplateMapa> vivos,
                                     JanelaAnos anos, Set<String> nomesReservados, Set<Path> alvos) {
-        for (Path filho : SubpastasListagem.listar(pastaAtual, avisoLog)) {
+        for (Path filho : listador.listar(pastaAtual)) {
             String nomeFilho = filho.getFileName().toString();
             int nivelFilho = nivelAtual + 1;
 

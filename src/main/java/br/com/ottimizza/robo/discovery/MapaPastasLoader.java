@@ -35,7 +35,16 @@ public final class MapaPastasLoader {
         record Carregado(MapaPastas mapa) implements Resultado {
         }
 
-        record Invalido(String motivo) implements Resultado {
+        /**
+         * @param linha linha do arquivo onde esta o problema, ou {@code 0} quando ele e do arquivo
+         *              inteiro (ilegivel, sem templates, templates demais). Ja vem citada no
+         *              {@code motivo}; existe separada para o mapeador apontar o caminho na tela
+         *              sem depender do formato da mensagem.
+         */
+        record Invalido(String motivo, int linha) implements Resultado {
+            Invalido(String motivo) {
+                this(motivo, 0);
+            }
         }
     }
 
@@ -59,7 +68,7 @@ public final class MapaPastasLoader {
         return Optional.of(interpretar(textoBruto, pastaInicial));
     }
 
-    static Resultado interpretar(String textoBruto, String pastaInicial) {
+    public static Resultado interpretar(String textoBruto, String pastaInicial) {
         List<TemplateMapa> templates = new ArrayList<>();
         String[] linhas = textoBruto.split("\r\n|\r|\n", -1);
 
@@ -73,7 +82,7 @@ public final class MapaPastasLoader {
                 templates.add(parseTemplate(linha, numeroLinha, pastaInicial));
             } catch (MapaInvalidoException e) {
                 return new Resultado.Invalido(
-                        NOME_ARQUIVO + " linha " + numeroLinha + ": " + e.getMessage());
+                        NOME_ARQUIVO + " linha " + numeroLinha + ": " + e.getMessage(), numeroLinha);
             }
             if (templates.size() > MAXIMO_TEMPLATES) {
                 return new Resultado.Invalido(NOME_ARQUIVO + ": mais de " + MAXIMO_TEMPLATES
